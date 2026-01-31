@@ -7,8 +7,8 @@ app = Flask(__name__)
 
 # --- [ตั้งค่า API Keys] ---
 # แนะนำให้ใส่ใน Environment Variables ของ Vercel เพื่อความปลอดภัย
-GENAI_API_KEY = "AIzaSyClIiuD-GJ_9O0D6fL_YbvihYubpkAdWo8"
-TTS_API_KEY = "AIzaSyA_8E0ic0mjLWNBfjHDUXCXUNW_IV3-hGs"
+GENAI_API_KEY = ""
+TTS_API_KEY = ""
 
 
 genai.configure(api_key=GENAI_API_KEY)
