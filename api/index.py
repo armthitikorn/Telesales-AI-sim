@@ -21,6 +21,7 @@ model = genai.GenerativeModel(
 )
 
 def get_audio_base64(text):
+    print(f"Debug: TTS_API_KEY is {'Set' if TTS_API_KEY else 'Empty'}") # เพิ่มบรรทัดนี้เพื่อเช็กใน Logs
     if not TTS_API_KEY:
         return None
     url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={TTS_API_KEY}"
