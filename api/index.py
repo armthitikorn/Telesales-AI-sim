@@ -1,6 +1,7 @@
 import os
 import requests
 import re
+import random
 from flask import Flask, request, jsonify, render_template_string
 import google.generativeai as genai
 
@@ -11,37 +12,37 @@ GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
 
-# --- [ส่วนที่ 2: ข้อมูลลูกค้า 5 ระดับ พร้อมตั้งค่าเสียง] ---
+# --- [ส่วนที่ 2: ข้อมูลลูกค้า 5 ระดับ (โจทย์ใหม่)] ---
 CUSTOMERS = {
     "1": {
-        "name": "น้องสุดา (Level 1)",
-        "desc": "เด็กจบใหม่ - เปิดใจง่าย สนใจประกันเล่มแรก",
-        "prompt": "คุณคือสุดา อายุ 23 เพิ่งทำงาน สดใส เป็นกันเอง สนใจประกันอุบัติเหตุและสุขภาพเบี้ยต่ำ ตกลงง่ายถ้าพนักงานพูดจาสุภาพ ห้ามมีวงเล็บในคำพูด",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 4.0, "rate": 1.1} # เสียงผู้หญิง สูง สดใส
+        "name": "น้องฟ้า (Level 1)",
+        "desc": "วัยทำงาน 25 ปี - สนใจสะสมทรัพย์และลดหย่อนภาษี",
+        "prompt": "คุณคือ 'ฟ้า' อายุ 25 เริ่มทำงาน อยากออมเงินและลดหย่อนภาษี พนักงานต้องแนะนำแบบสะสมทรัพย์ให้เห็นภาพความคุ้มค่า คุณจะตกลงง่ายถ้าพนักงานอธิบายเรื่องภาษีชัดเจน ห้ามมีวงเล็บในคำพูด",
+        "voice": {"name": "th-TH-Standard-A", "pitch": 3.0, "rate": 1.1} 
     },
     "2": {
-        "name": "คุณสมชาย (Level 2)",
-        "desc": "คุณลุงใจดี - ขี้เหงา ชวนคุยนอกเรื่องเก่ง",
-        "prompt": "คุณคือคุณลุงสมชาย อายุ 65 ใจดี ชอบเล่าเรื่องอดีต พนักงานต้องนิ่งและดึงกลับมาเรื่องขายให้ได้ถึงจะตกลงทำเพื่อหลาน ห้ามมีวงเล็บในคำพูด",
-        "voice": {"name": "th-TH-Standard-B", "pitch": -3.0, "rate": 0.9} # เสียงผู้ชาย ทุ้ม ช้า แบบคนแก่
+        "name": "คุณวิรัช (Level 2)",
+        "desc": "วัยสร้างตัว 45 ปี - เน้นความมั่นคงและสุขภาพ",
+        "prompt": "คุณคือ 'วิรัช' อายุ 45 อยากได้ความมั่นคงให้ชีวิต สนใจทั้งสุขภาพและเงินออม พนักงานต้องนำเสนออย่างเป็นทางการและครบถ้วนถึงจะยอมรับโครงการ ห้ามมีวงเล็บในคำพูด",
+        "voice": {"name": "th-TH-Standard-B", "pitch": -1.0, "rate": 1.0}
     },
     "3": {
-        "name": "คุณกัญญา (Level 3)",
-        "desc": "พนักงานออฟฟิศ - เน้นตัวเลขและความคุ้มค่า",
-        "prompt": "คุณคือกัญญา อายุ 30 เนี้ยบ ถามเรื่อง IRR และความคุ้มครองละเอียด ถ้าตอบไม่ชัดเจนจะเริ่มรำคาญ ห้ามมีวงเล็บในคำพูด",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0} # เสียงผู้หญิง ปกติ มั่นใจ
+        "name": "คุณป้ามาลี (Level 3)",
+        "desc": "จอมละเอียด - ถามเยอะ ขี้สงสัย แต่ชอบคำชม",
+        "prompt": "คุณคือ 'ป้ามาลี' จุกจิก ถามเก่งมาก พนักงานต้องใจเย็น ตอบคำถามให้ครบ และต้องมีคำชม/การให้เกียรติในบทสนทนา คุณถึงจะซื้อทั้งสุขภาพและออมทรัพย์ ห้ามมีวงเล็บในคำพูด",
+        "voice": {"name": "th-TH-Standard-A", "pitch": -2.0, "rate": 0.9}
     },
     "4": {
-        "name": "คุณประเสริฐ (Level 4)",
-        "desc": "เจ้าของอู่ - โผงผาง ไม่เชื่อใจประกัน",
-        "prompt": "คุณคือประเสริฐ อายุ 50 ดุ พูดเสียงดัง เคยมีประสบการณ์เคลมยาก พนักงานต้องใช้ความจริงใจอย่างมากถึงจะยอม ห้ามมีวงเล็บในคำพูด",
-        "voice": {"name": "th-TH-Standard-B", "pitch": -2.0, "rate": 1.0} # เสียงผู้ชาย เข้มแข็ง
+        "name": "แม่แอน (Level 4)",
+        "desc": "คุณแม่ลูกอ่อน - อยากทำประกันให้ลูก (9 ขวบ)",
+        "prompt": "คุณคือ 'แอน' อยากทำประกันสุขภาพให้ลูกชายอายุ 9 ขวบ คุณจะฟังพนักงานนำเสนออย่างดี แต่ตอนจบคุณจะปฏิเสธเป็นนิสัย พนักงานต้องใช้การโน้มน้าวเรื่องความเสี่ยงของลูกถึงจะปิดการขายได้ ห้ามมีวงเล็บในคำพูด",
+        "voice": {"name": "th-TH-Standard-A", "pitch": 1.0, "rate": 1.0}
     },
     "5": {
-        "name": "คุณวีณา (Level 5 - Boss)",
-        "desc": "นักธุรกิจหญิง - ยากที่สุด! ยุ่งตลอดเวลา และต้องถามสามี",
-        "prompt": "คุณคือวีณา อายุ 40 ใจแข็งมาก ปฏิเสธว่าติดประชุมตลอด พนักงานต้องใช้จิตวิทยาขั้นสูง และจบด้วยการขอไปปรึกษาสามี พนักงานต้องแก้จุดนี้ให้ได้ถึงจะปิดการขายสำเร็จ ห้ามมีวงเล็บในคำพูด",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.95} # เสียงผู้หญิง สุขุม น่าเกรงขาม
+        "name": "คุณอัครเดช (Level 5 - BOSS)",
+        "desc": "นักธุรกิจใหญ่ - เน้นทุนสูงเท่านั้น (ทุนต่ำไม่คุย)",
+        "prompt": "คุณคือ 'อัครเดช' รวยและยุ่งมาก ถ้าพนักงานเสนอทุนประกันน้อยๆ คุณจะวางสายทันที ต้องเสนอทุนสูงสุดและพูดจาน่าเชื่อถือ โน้มน้าวเก่งระดับมือโปรถึงจะปิดการขายได้ ห้ามมีวงเล็บในคำพูด",
+        "voice": {"name": "th-TH-Standard-B", "pitch": -3.0, "rate": 0.95}
     }
 }
 
@@ -54,74 +55,59 @@ def get_audio_base64(text, voice_config):
     payload = {
         "input": {"text": clean_text},
         "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
-        "audioConfig": {
-            "audioEncoding": "MP3",
-            "pitch": voice_config["pitch"],
-            "speakingRate": voice_config["rate"]
-        }
+        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
     }
     try:
         response = requests.post(url, json=payload)
         return response.json().get("audioContent") if response.status_code == 200 else None
     except: return None
 
-# --- [ส่วนที่ 4: หน้าเว็บ Interface (Lobby + Chat)] ---
+# --- [ส่วนที่ 3: หน้าเว็บ Interface (รองรับ iOS และสุ่มลูกค้า)] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Mastery Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sales Mastery Academy</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; --gray: #f1f5f9; }
-        body { font-family: 'Sarabun', sans-serif; background: #cbd5e1; margin:0; }
-        
-        /* Lobby Style */
+        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; }
+        body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; max-width: 600px; margin: auto; text-align: center; }
-        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; cursor: pointer; border-left: 8px solid var(--blue); transition: 0.3s; display: flex; align-items: center; justify-content: space-between; }
-        .cust-card:hover { transform: translateX(10px); background: #f8fafc; }
-        .lvl-badge { background: var(--red); color: white; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; }
-        .locked { filter: grayscale(1); opacity: 0.6; }
-
-        /* Chat Style */
-        #main-app { display: none; max-width: 500px; margin: auto; background: white; height: 100vh; display: none; flex-direction: column; }
+        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; cursor: pointer; border-left: 8px solid var(--blue); box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: left; }
+        #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; border-bottom: 4px solid var(--red); }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; font-size: 0.95rem; }
-        .staff { align-self: flex-end; background: var(--blue); color: white; border-bottom-right-radius: 2px; }
-        .customer { align-self: flex-start; background: white; color: #1e293b; border-bottom-left-radius: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .controls { padding: 20px; background: white; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; box-shadow: 0 4px 12px rgba(190, 18, 60, 0.4); }
+        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; font-size: 0.95rem; line-height: 1.4; }
+        .staff { align-self: flex-end; background: var(--blue); color: white; }
+        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
+        .controls { padding: 20px; background: white; border-top: 1px solid #ddd; text-align: center; }
+        .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
         .btn-mic.active { animation: pulse 1s infinite; background: #9f1239; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(190, 18, 60, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(190, 18, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(190, 18, 60, 0); } }
-
-        /* Certificate / Evaluation Modal */
         #result-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        .modal-body { background: white; padding: 30px; border-radius: 15px; max-width: 600px; margin: auto; }
-        .cert-frame { border: 15px double var(--gold); padding: 30px; text-align: center; background: #fffcf0; position: relative; }
+        .modal-body { background: white; padding: 25px; border-radius: 15px; max-width: 600px; margin: auto; }
+        .cert-frame { border: 10px double var(--gold); padding: 20px; text-align: center; background: #fffcf0; margin-top: 20px; }
     </style>
 </head>
 <body>
-
     <div id="lobby">
         <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
-        <p>เลือกด่านของคุณเพื่อเริ่มการฝึกฝน</p>
+        <p>เลือกด่านเพื่อเริ่มการทดสอบ (ใบเซอร์ฯ อยู่ที่ Level 5)</p>
         <div id="customer-list"></div>
     </div>
 
     <div id="main-app">
         <div class="header">
-            <button onclick="location.reload()" style="float:left; background:none; border:none; color:white; cursor:pointer;">⬅️ ออก</button>
+            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; cursor:pointer;">⬅️ ออก</button>
             <h2 id="active-cust-name">ลูกค้า</h2>
             <div id="status">แตะไมค์เพื่อคุย</div>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <button id="eval-btn" style="display:none; width:100%; padding:10px; border-radius:20px; border:1px solid var(--blue); color:var(--blue); background:none; cursor:pointer;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมิน</button>
+            <button id="eval-btn" style="display:none; margin-top:10px; width:100%; padding:10px; border-radius:20px; border:1px solid var(--blue); color:var(--blue); background:none; cursor:pointer;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมิน</button>
         </div>
     </div>
 
@@ -129,18 +115,16 @@ HTML_TEMPLATE = """
         <div class="modal-body">
             <div id="pdf-area">
                 <div id="eval-content"></div>
-                <div id="cert-area" style="display:none; margin-top:20px;">
+                <div id="cert-area" style="display:none;">
                     <div class="cert-frame">
-                        <p style="font-size: 0.8rem; letter-spacing: 2px;">CERTIFICATE OF EXCELLENCE</p>
-                        <h1 style="color: var(--gold); margin: 10px 0;">ยอดนักขายระดับตำนาน</h1>
-                        <p>ขอมอบให้พนักงานผู้ทรงเกียรติที่พิชิต</p>
-                        <h2 style="color: var(--blue);">ด่านที่ 5 : คุณวีณา</h2>
-                        <p>ด้วยทักษะการโน้มน้าวและขจัดข้อโต้แย้งระดับสูง</p>
-                        <p style="font-size: 0.8rem; margin-top: 30px;"><i>ได้รับเมื่อวันที่ 1 กุมภาพันธ์ 2026</i></p>
+                        <h2 style="color: var(--gold);">ใบประกาศเกียรติคุณ</h2>
+                        <p>ขอมอบให้พนักงานขายยอดเยี่ยมผู้พิชิตด่านสูงสุด</p>
+                        <h1 style="color: var(--blue);">MASTER OF TELESALES</h1>
+                        <p><i>ปิดการขายลูกค้า Level 5 สำเร็จ</i></p>
                     </div>
                 </div>
             </div>
-            <button onclick="downloadPDF()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:15px; cursor:pointer;">💾 ดาวน์โหลดผลประเมิน (PDF)</button>
+            <button onclick="downloadPDF()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; margin-top:10px; border-radius:8px; cursor:pointer;">💾 ดาวน์โหลด PDF</button>
             <button onclick="location.reload()" style="width:100%; padding:10px; background:none; border:none; color:gray; cursor:pointer;">กลับหน้าหลัก</button>
         </div>
     </div>
@@ -150,23 +134,21 @@ HTML_TEMPLATE = """
         let activeLevel = "";
         const customers = {{ CUSTOMERS | tojson }};
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = new SpeechRecognition();
+        let recognition = new (SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'th-TH';
 
-        // สร้างรายการลูกค้าใน Lobby
+        let audioContextUnlocked = false;
+        function unlockAudio() {
+            if (!audioContextUnlocked) {
+                const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+                silentAudio.play().then(() => { audioContextUnlocked = true; }).catch(e => console.log(e));
+            }
+        }
+
         const listDiv = document.getElementById('customer-list');
         Object.keys(customers).forEach(lvl => {
             const c = customers[lvl];
-            listDiv.innerHTML += `
-                <div class="cust-card" onclick="startChat('${lvl}')">
-                    <div style="text-align:left">
-                        <span class="lvl-badge">Level ${lvl}</span>
-                        <div style="font-weight:600; margin-top:5px;">${c.name}</div>
-                        <div style="font-size:0.75rem; color:gray;">${c.desc}</div>
-                    </div>
-                    <div>➡️</div>
-                </div>
-            `;
+            listDiv.innerHTML += `<div class="cust-card" onclick="startChat('${lvl}')"><b>Level ${lvl}: ${c.name}</b><br><small>${c.desc}</small></div>`;
         });
 
         function startChat(lvl) {
@@ -180,6 +162,7 @@ HTML_TEMPLATE = """
         recognition.onend = () => document.getElementById('mic-btn').classList.remove('active');
 
         function toggleListen() {
+            unlockAudio();
             recognition.start();
             document.getElementById('mic-btn').classList.add('active');
             document.getElementById('status').innerText = "กำลังฟัง...";
@@ -196,7 +179,6 @@ HTML_TEMPLATE = """
                 body: JSON.stringify({message: text, lvl: activeLevel})
             });
             const data = await res.json();
-            
             chatBox.innerHTML += `<div class="msg customer"><b>${customers[activeLevel].name}:</b> ${data.reply}</div>`;
             history.push(customers[activeLevel].name + ": " + data.reply);
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -212,31 +194,27 @@ HTML_TEMPLATE = """
 
         async function showEvaluation() {
             document.getElementById('result-modal').style.display = 'block';
-            document.getElementById('eval-content').innerText = "กำลังตรวจคะแนน...";
-            
+            document.getElementById('eval-content').innerText = "กำลังประมวลผลตามกฎ คปภ...";
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({history: history.join("\\n")})
             });
             const data = await res.json();
-            document.getElementById('eval-content').innerHTML = "<h2>📊 ผลการประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
-            
-            // ใบเซอร์จะออกเฉพาะเมื่อชนะ Level 5
-            if (activeLevel === "5" && data.is_closed) {
-                document.getElementById('cert-area').style.display = 'block';
-            }
+            document.getElementById('eval-content').innerHTML = "<h2>ผลประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
+            if (activeLevel === "5" && data.is_closed) document.getElementById('cert-area').style.display = 'block';
         }
 
         function downloadPDF() {
             const element = document.getElementById('pdf-area');
-            html2pdf().from(element).save('Sales_Master_Report.pdf');
+            html2pdf().from(element).save('Evaluation_Report.pdf');
         }
     </script>
 </body>
 </html>
 """
 
+# --- [ส่วนที่ 4: Routes] ---
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
@@ -244,10 +222,8 @@ def home():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
-    lvl = data.get('lvl')
-    user_msg = data.get('message')
+    lvl, user_msg = data.get('lvl'), data.get('message')
     cust = CUSTOMERS[lvl]
-    
     response = model.generate_content(f"System: {cust['prompt']}\\nUser: {user_msg}")
     reply_text = response.text
     audio_data = get_audio_base64(reply_text, cust['voice'])
@@ -256,7 +232,12 @@ def chat():
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
     history = request.json.get('history')
-    prompt = f"คุณคือโค้ชสอนการขายชั้นครู ประเมินบทสนทนาอย่างละเอียด 1-10 คะแนน และสรุปว่า 'ปิดการขายสำเร็จหรือไม่' ถ้าสำเร็จให้ตอบคำว่า [CLOSED_SUCCESS] ไว้ด้วย: {history}"
+    prompt = f"""คุณคือโค้ชสอนการขายประกันทางโทรศัพท์ ประเมินบทสนทนานี้ตามหลักเกณฑ์ดังนี้:
+    1. การเปิดตัวตามกฎ คปภ. (ต้องระบุชื่อ-นามสกุล, ชื่อบริษัท, เลขใบอนุญาต และแจ้งวัตถุประสงค์)
+    2. ทักษะการโน้มน้าวและขจัดข้อโต้แย้งตามระดับความยาก
+    3. ความถูกต้องของข้อมูลโครงการ
+    4. สรุปว่า 'ปิดการขายสำเร็จหรือไม่' (ถ้าสำเร็จให้มีคำว่า [CLOSED_SUCCESS])
+    ประเมินจากบทสนทนานี้: {history}"""
     evaluation = model.generate_content(prompt).text
     is_closed = "[CLOSED_SUCCESS]" in evaluation
     return jsonify({"evaluation": evaluation, "is_closed": is_closed})
