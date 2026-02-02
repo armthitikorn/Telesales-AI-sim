@@ -12,7 +12,7 @@ GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
 
-# --- [ส่วนที่ 2: ข้อมูลลูกค้า 5 ระดับ (โจทย์ใหม่)] ---
+# --- [ส่วนที่ 2: ข้อมูลลูกค้า 5 ระดับ] ---
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า (Level 1)",
@@ -59,10 +59,13 @@ def get_audio_base64(text, voice_config):
     }
     try:
         response = requests.post(url, json=payload)
-        return response.json().get("audioContent") if response.status_code == 200 else None
-    except: return None
+        if response.status_code == 200:
+            return response.json().get("audioContent")
+        return None
+    except:
+        return None
 
-# --- [ส่วนที่ 3: หน้าเว็บ Interface (รองรับ iOS และสุ่มลูกค้า)] ---
+# --- [ส่วนที่ 3: UI และ Logic หน้าบ้าน] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
@@ -75,13 +78,14 @@ HTML_TEMPLATE = """
         :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; }
         body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; max-width: 600px; margin: auto; text-align: center; }
-        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; cursor: pointer; border-left: 8px solid var(--blue); box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: left; }
+        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; cursor: pointer; border-left: 8px solid var(--blue); box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: left; transition: 0.2s; }
+        .cust-card:hover { transform: scale(1.02); }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; border-bottom: 4px solid var(--red); }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; }
         .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; font-size: 0.95rem; line-height: 1.4; }
-        .staff { align-self: flex-end; background: var(--blue); color: white; }
-        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
+        .staff { align-self: flex-end; background: var(--blue); color: white; border-bottom-right-radius: 2px; }
+        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; border-bottom-left-radius: 2px; }
         .controls { padding: 20px; background: white; border-top: 1px solid #ddd; text-align: center; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
         .btn-mic.active { animation: pulse 1s infinite; background: #9f1239; }
@@ -100,14 +104,14 @@ HTML_TEMPLATE = """
 
     <div id="main-app">
         <div class="header">
-            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; cursor:pointer;">⬅️ ออก</button>
-            <h2 id="active-cust-name">ลูกค้า</h2>
-            <div id="status">แตะไมค์เพื่อคุย</div>
+            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; cursor:pointer; font-size: 1.2rem;">⬅️</button>
+            <h2 id="active-cust-name" style="margin:0; font-size:1.1rem;">ลูกค้า</h2>
+            <div id="status" style="font-size: 0.7rem; opacity: 0.8;">แตะไมค์เพื่อคุย</div>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <button id="eval-btn" style="display:none; margin-top:10px; width:100%; padding:10px; border-radius:20px; border:1px solid var(--blue); color:var(--blue); background:none; cursor:pointer;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมิน</button>
+            <button id="eval-btn" style="display:none; margin-top:10px; width:100%; padding:12px; border-radius:25px; border:1px solid var(--blue); color:var(--blue); background:none; cursor:pointer; font-weight:bold;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมิน</button>
         </div>
     </div>
 
@@ -117,15 +121,15 @@ HTML_TEMPLATE = """
                 <div id="eval-content"></div>
                 <div id="cert-area" style="display:none;">
                     <div class="cert-frame">
-                        <h2 style="color: var(--gold);">ใบประกาศเกียรติคุณ</h2>
-                        <p>ขอมอบให้พนักงานขายยอดเยี่ยมผู้พิชิตด่านสูงสุด</p>
-                        <h1 style="color: var(--blue);">MASTER OF TELESALES</h1>
-                        <p><i>ปิดการขายลูกค้า Level 5 สำเร็จ</i></p>
+                        <h2 style="color: var(--gold); margin: 5px 0;">ใบประกาศเกียรติคุณ</h2>
+                        <p style="font-size: 0.8rem;">ขอมอบให้พนักงานขายยอดเยี่ยมผู้พิชิตด่านสูงสุด</p>
+                        <h1 style="color: var(--blue); font-size: 1.5rem; margin: 10px 0;">MASTER OF TELESALES</h1>
+                        <p style="font-size: 0.9rem;"><i>ปิดการขายลูกค้า Level 5 สำเร็จ</i></p>
                     </div>
                 </div>
             </div>
-            <button onclick="downloadPDF()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; margin-top:10px; border-radius:8px; cursor:pointer;">💾 ดาวน์โหลด PDF</button>
-            <button onclick="location.reload()" style="width:100%; padding:10px; background:none; border:none; color:gray; cursor:pointer;">กลับหน้าหลัก</button>
+            <button onclick="downloadPDF()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; margin-top:15px; border-radius:8px; cursor:pointer; font-weight:bold;">💾 ดาวน์โหลด PDF</button>
+            <button onclick="location.reload()" style="width:100%; padding:10px; background:none; border:none; color:gray; cursor:pointer; margin-top:10px;">กลับหน้าหลัก</button>
         </div>
     </div>
 
@@ -137,18 +141,16 @@ HTML_TEMPLATE = """
         let recognition = new (SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'th-TH';
 
-        let audioContextUnlocked = false;
+        let audioPlayer = new Audio(); // สร้างตัวเล่นเสียงรอไว้ตัวเดียวเพื่อ iOS
+
         function unlockAudio() {
-            if (!audioContextUnlocked) {
-                const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-                silentAudio.play().then(() => { audioContextUnlocked = true; }).catch(e => console.log(e));
-            }
+            audioPlayer.play().catch(() => {}); // ยืนยันสิทธิ์การเล่นเสียงบน iPhone
         }
 
         const listDiv = document.getElementById('customer-list');
         Object.keys(customers).forEach(lvl => {
             const c = customers[lvl];
-            listDiv.innerHTML += `<div class="cust-card" onclick="startChat('${lvl}')"><b>Level ${lvl}: ${c.name}</b><br><small>${c.desc}</small></div>`;
+            listDiv.innerHTML += `<div class="cust-card" onclick="startChat('${lvl}')"><b>Level ${lvl}: ${c.name}</b><br><small style="color:#666">${c.desc}</small></div>`;
         });
 
         function startChat(lvl) {
@@ -156,6 +158,7 @@ HTML_TEMPLATE = """
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('active-cust-name').innerText = customers[lvl].name;
+            unlockAudio();
         }
 
         recognition.onresult = (e) => sendToAI(e.results[0][0].transcript);
@@ -172,6 +175,7 @@ HTML_TEMPLATE = """
             const chatBox = document.getElementById('chat-box');
             chatBox.innerHTML += `<div class="msg staff"><b>คุณ:</b> ${text}</div>`;
             history.push("พนักงาน: " + text);
+            document.getElementById('status').innerText = "ลูกค้ากำลังคิด...";
 
             const res = await fetch('/api/chat', {
                 method: 'POST',
@@ -179,16 +183,17 @@ HTML_TEMPLATE = """
                 body: JSON.stringify({message: text, lvl: activeLevel})
             });
             const data = await res.json();
+            
             chatBox.innerHTML += `<div class="msg customer"><b>${customers[activeLevel].name}:</b> ${data.reply}</div>`;
             history.push(customers[activeLevel].name + ": " + data.reply);
             chatBox.scrollTop = chatBox.scrollHeight;
             document.getElementById('eval-btn').style.display = 'block';
 
             if(data.audio) {
-                const audio = new Audio("data:audio/mp3;base64," + data.audio);
-                audio.play();
+                audioPlayer.src = "data:audio/mp3;base64," + data.audio;
+                audioPlayer.play();
                 document.getElementById('status').innerText = "ลูกค้ากำลังพูด...";
-                audio.onended = () => document.getElementById('status').innerText = "คุยต่อได้เลย";
+                audioPlayer.onended = () => document.getElementById('status').innerText = "คุยต่อได้เลย";
             }
         }
 
@@ -201,7 +206,7 @@ HTML_TEMPLATE = """
                 body: JSON.stringify({history: history.join("\\n")})
             });
             const data = await res.json();
-            document.getElementById('eval-content').innerHTML = "<h2>ผลประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
+            document.getElementById('eval-content').innerHTML = "<h2>📊 ผลการประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
             if (activeLevel === "5" && data.is_closed) document.getElementById('cert-area').style.display = 'block';
         }
 
@@ -214,7 +219,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- [ส่วนที่ 4: Routes] ---
+# --- [ส่วนที่ 4: Routes ของ Server] ---
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
@@ -233,10 +238,10 @@ def chat():
 def evaluate():
     history = request.json.get('history')
     prompt = f"""คุณคือโค้ชสอนการขายประกันทางโทรศัพท์ ประเมินบทสนทนานี้ตามหลักเกณฑ์ดังนี้:
-    1. การเปิดตัวตามกฎ คปภ. (ต้องระบุชื่อ-นามสกุล, ชื่อบริษัท, เลขใบอนุญาต และแจ้งวัตถุประสงค์)
-    2. ทักษะการโน้มน้าวและขจัดข้อโต้แย้งตามระดับความยาก
-    3. ความถูกต้องของข้อมูลโครงการ
-    4. สรุปว่า 'ปิดการขายสำเร็จหรือไม่' (ถ้าสำเร็จให้มีคำว่า [CLOSED_SUCCESS])
+    1. การเปิดตัวตามกฎ คปภ. (ต้องระบุชื่อ-นามสกุลพนักงาน, ชื่อบริษัทประกัน, เลขใบอนุญาต และแจ้งวัตถุประสงค์การโทร)
+    2. ทักษะการโน้มน้าวและขจัดข้อโต้แย้งตามระดับความยากของลูกค้า
+    3. ความถูกต้องและครบถ้วนของข้อมูลโครงการที่นำเสนอ
+    4. สรุปว่า 'ปิดการขายสำเร็จหรือไม่' (ถ้าสำเร็จให้มีคำว่า [CLOSED_SUCCESS] ในคำตอบ)
     ประเมินจากบทสนทนานี้: {history}"""
     evaluation = model.generate_content(prompt).text
     is_closed = "[CLOSED_SUCCESS]" in evaluation
