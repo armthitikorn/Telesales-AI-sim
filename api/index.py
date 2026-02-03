@@ -17,7 +17,7 @@ CUSTOMERS = {
     "2": {"name": "คุณวิรัช (Level 2)", "desc": "สุขุม - เน้นความมั่นคง", "prompt": "คุณคือ 'วิรัช' (ผู้ชาย) อายุ 45 ปี พูดลงท้ายว่า 'ครับ' เสมอ ตอบโต้ด้วยเหตุผล", "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 0.95}},
     "3": {"name": "คุณป้ามาลี (Level 3)", "desc": "จอมละเอียด - ถามเยอะ", "prompt": "คุณคือ 'ป้ามาลี' (ผู้หญิง) พูดลงท้ายว่า 'ค่ะ/จ๊ะ' ถามจุกจิกเรื่องเงิน", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
     "4": {"name": "แม่แอน (Level 4)", "desc": "คุณแม่ลูกอ่อน - ห่วงลูก", "prompt": "คุณคือ 'แอน' (ผู้หญิง) พูดลงท้ายว่า 'ค่ะ' กังวลค่าใช้จ่ายเพื่อลูก", "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}},
-    "5": {"name": "คุณอัครเดช (Level 5)", "desc": "นักธุรกิจใหญ่ - เวลาน้อย", "prompt": "คุณคือ 'อัครเดช' (ผู้ชาย) พูดลงท้ายว่า 'ครับ' เน้นทุนประกันสูงและเร็ว", "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}}
+    "5": {"name": "คุณอัครเดช (Level 5)", "desc": "นักธุรกิจใหญ่ - เวลาน้อย", "prompt": "คุณคือ 'อัครเดช' (ผู้ชาย) รวยมาก พูดลงท้ายว่า 'ครับ' เน้นทุนประกันสูงและเร็ว", "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}}
 }
 
 model = genai.GenerativeModel(model_name="gemini-2.5-flash")
@@ -36,7 +36,7 @@ def get_audio_base64(text, voice_config):
         return res.json().get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: UI พร้อมระบบใบประกาศ] ---
+# --- [ส่วนที่ 3: UI ที่แก้บั๊กรายชื่อหายและภาษาต่างดาว] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
@@ -48,17 +48,20 @@ HTML_TEMPLATE = """
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; }
         body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; }
-        #lobby { padding: 20px; text-align: center; }
-        input[type="text"] { padding: 12px; width: 85%; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 20px; font-size: 16px; }
-        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); cursor: pointer; text-align: left; }
+        #lobby { padding: 20px; max-width: 600px; margin: auto; text-align: center; }
+        .input-group { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input[type="text"] { padding: 15px; width: 90%; border-radius: 8px; border: 2px solid #ddd; font-size: 18px; text-align: center; }
+        .cust-card { background: white; padding: 20px; margin: 15px 0; border-radius: 12px; border-left: 10px solid var(--blue); cursor: pointer; text-align: left; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .cust-card:active { transform: scale(0.95); background: #f8fafc; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 85%; font-size: 1rem; line-height: 1.5; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
-        .customer { align-self: flex-start; background: #e2e8f0; }
-        .controls { padding: 20px; text-align: center; background: white; border-top: 1px solid #ddd; }
-        .btn-mic { width: 80px; height: 80px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 35px; cursor: pointer; }
+        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
+        .controls { padding: 25px; text-align: center; background: white; border-top: 1px solid #ddd; }
+        .btn-mic { width: 85px; height: 85px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; box-shadow: 0 4px 15px rgba(190, 18, 60, 0.4); }
+        .btn-mic:active { background: #9f1239; }
         #result-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; padding: 20px; overflow-y: auto; }
         .modal-body { background: white; padding: 25px; border-radius: 15px; max-width: 600px; margin: auto; }
         #cert-area { display:none; }
@@ -67,27 +70,32 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div id="lobby">
-        <h1 style="color: var(--blue)">🏅 Sales Mastery Academy</h1>
-        <input type="text" id="staff-name" placeholder="ชื่อ - นามสกุล ของท่าน">
+        <h1 style="color: var(--blue); font-size: 2.5rem;">🏅 Sales Mastery</h1>
+        <div class="input-group">
+            <p style="margin-bottom: 10px; font-weight: bold;">ระบุชื่อพนักงานเพื่อเริ่มการฝึก</p>
+            <input type="text" id="staff-name" placeholder="พิมพ์ชื่อ-นามสกุล ของคุณที่นี่">
+        </div>
+        <p style="color: #666;">คลิกเลือกลูกค้าด้านล่างเพื่อเริ่มโทร:</p>
         <div id="customer-list"></div>
     </div>
 
     <div id="main-app">
         <div class="header">
-            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; padding:10px;">⬅️</button>
+            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; padding:10px; font-size: 1.2rem;">🏠</button>
             <h2 id="active-cust-name" style="margin:0;">ลูกค้า</h2>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <button id="eval-btn" style="display:none; width:100%; margin-top:15px; padding:12px; border-radius:25px; border:1px solid var(--blue); background:none; color:var(--blue);" onclick="showEvaluation()">🏁 จบการสนทนาและประเมินผล</button>
+            <div id="status" style="margin-top: 10px; font-size: 0.9rem; color: #666;">แตะไมค์เพื่อเริ่มพูด</div>
+            <button id="eval-btn" style="display:none; width:100%; margin-top:15px; padding:15px; border-radius:30px; border:2px solid var(--blue); background:none; color:var(--blue); font-weight:bold;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมินผล</button>
         </div>
     </div>
 
     <div id="result-modal">
         <div class="modal-body">
             <div id="eval-content"></div>
-            <button id="download-cert-btn" style="display:none; width:100%; margin-top:15px; padding:15px; background:var(--gold); color:white; border:none; border-radius:8px; font-weight:bold;" onclick="generatePDF()">📜 รับใบประกาศนียบัตร</button>
+            <button id="download-cert-btn" style="display:none; width:100%; margin-top:15px; padding:18px; background:var(--gold); color:white; border:none; border-radius:10px; font-weight:bold; font-size: 1.1rem;" onclick="generatePDF()">📜 รับใบประกาศนียบัตร</button>
             <button onclick="location.reload()" style="width:100%; padding:10px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:10px;">กลับหน้าหลัก</button>
         </div>
     </div>
@@ -104,22 +112,33 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
-        let history = [];
-        let activeLevel = "";
-        let isProcessing = false;
-        const customers = {{ CUSTOMERS | tojson | safe }};
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH';
+        var history_data = [];
+        var activeLevel = "";
+        var isProcessing = false;
+        var customers = {{ CUSTOMERS | tojson | safe }};
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var recognition = null;
+        
+        if(SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+        }
 
-        let audioPlayer = new Audio();
+        var audioPlayer = new Audio();
 
-        Object.keys(customers).forEach(function(lvl) {
-            document.getElementById('customer-list').innerHTML += '<div class="cust-card" onclick="startChat(\'' + lvl + '\')"><b>Level ' + lvl + ': ' + customers[lvl].name + '</b><br><small>' + customers[lvl].desc + '</small></div>';
-        });
+        // สร้างรายชื่อลูกค้าแบบ Safe String
+        var listDiv = document.getElementById('customer-list');
+        for (var lvl in customers) {
+            var card = document.createElement('div');
+            card.className = 'cust-card';
+            card.setAttribute('onclick', "startChat('" + lvl + "')");
+            card.innerHTML = "<b>Level " + lvl + ": " + customers[lvl].name + "</b><br><small>" + customers[lvl].desc + "</small>";
+            listDiv.appendChild(card);
+        }
 
         function startChat(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("กรุณาใส่ชื่อพนักงานก่อนครับ"); return; }
+            var sName = document.getElementById('staff-name').value;
+            if(!sName) { alert("กรุณาระบุชื่อพนักงานก่อนเริ่มฝึกครับ"); return; }
             activeLevel = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
@@ -127,19 +146,22 @@ HTML_TEMPLATE = """
             unlockAudio();
         }
 
-        recognition.onresult = function(e) {
-            var text = e.results[0][0].transcript;
-            if (text.length > 1 && !isProcessing) { sendToAI(text); }
-        };
-
-        recognition.onend = function() { document.getElementById('mic-btn').classList.remove('active'); };
+        if(recognition) {
+            recognition.onresult = function(e) {
+                var text = e.results[0][0].transcript;
+                if (text.length > 1 && !isProcessing) { sendToAI(text); }
+            };
+            recognition.onend = function() { document.getElementById('mic-btn').style.opacity = "1"; };
+        }
 
         function toggleListen() {
             if (isProcessing) return;
+            if (!recognition) { alert("เบราว์เซอร์ไม่รองรับไมค์"); return; }
             unlockAudio();
             audioPlayer.pause();
             recognition.start();
-            document.getElementById('mic-btn').classList.add('active');
+            document.getElementById('mic-btn').style.opacity = "0.5";
+            document.getElementById('status').innerText = "👂 กำลังฟัง... พูดได้เลยครับ";
         }
 
         async function sendToAI(text) {
@@ -147,23 +169,25 @@ HTML_TEMPLATE = """
             document.getElementById('mic-btn').disabled = true;
             var chatBox = document.getElementById('chat-box');
             chatBox.innerHTML += '<div class="msg staff"><b>คุณ:</b> ' + text + '</div>';
-            history.push("พนักงาน: " + text);
+            history_data.push("พนักงาน: " + text);
             chatBox.scrollTop = chatBox.scrollHeight;
+            document.getElementById('status').innerText = "⌛ ลูกค้ากำลังคิด...";
 
             try {
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: text, lvl: activeLevel, history: history})
+                    body: JSON.stringify({message: text, lvl: activeLevel, history: history_data})
                 });
                 const data = await res.json();
                 chatBox.innerHTML += '<div class="msg customer"><b>' + customers[activeLevel].name + ':</b> ' + data.reply + '</div>';
-                history.push(customers[activeLevel].name + ": " + data.reply);
+                history_data.push(customers[activeLevel].name + ": " + data.reply);
                 chatBox.scrollTop = chatBox.scrollHeight;
 
                 if (data.audio) {
                     audioPlayer.src = "data:audio/mp3;base64," + data.audio;
                     await audioPlayer.play();
+                    document.getElementById('status').innerText = "🔈 ลูกค้ากำลังตอบกลับ...";
                     audioPlayer.onended = function() { resetUI(); };
                 } else { resetUI(); }
             } catch (e) { resetUI(); }
@@ -172,19 +196,21 @@ HTML_TEMPLATE = """
         function resetUI() {
             isProcessing = false;
             document.getElementById('mic-btn').disabled = false;
+            document.getElementById('mic-btn').style.opacity = "1";
+            document.getElementById('status').innerText = "✅ พร้อมคุยต่อ แตะไมค์เลยครับ";
             document.getElementById('eval-btn').style.display = 'block';
         }
 
         async function showEvaluation() {
             document.getElementById('result-modal').style.display = 'block';
-            document.getElementById('eval-content').innerText = "⏳ กำลังประเมิน...";
+            document.getElementById('eval-content').innerText = "⏳ กำลังประเมินผลการขาย...";
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({history: history.join("\\n")})
+                body: JSON.stringify({history: history_data.join("\\n")})
             });
             const data = await res.json();
-            document.getElementById('eval-content').innerHTML = "<h2>📊 ผลการทดสอบ</h2>" + data.evaluation.replace(/\\n/g, '<br>');
+            document.getElementById('eval-content').innerHTML = "<h2>📊 สรุปผลการทดสอบ</h2>" + data.evaluation.replace(/\\n/g, '<br>');
             document.getElementById('download-cert-btn').style.display = 'block';
         }
 
@@ -196,7 +222,7 @@ HTML_TEMPLATE = """
             var element = document.getElementById('certificate');
             var opt = {
                 margin: 0,
-                filename: 'Certificate.pdf',
+                filename: 'Sales_Certificate.pdf',
                 html2canvas: { scale: 2 },
                 jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
             };
@@ -213,30 +239,3 @@ HTML_TEMPLATE = """
     </script>
 </body>
 </html>
-"""
-
-@app.route('/')
-def home():
-    return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    data = request.json
-    lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
-    cust = CUSTOMERS[lvl]
-    context = "\\n".join(history[-6:])
-    full_prompt = "System: " + cust['prompt'] + "\\n\\nHistory:\\n" + context + "\\nUser: " + user_msg
-    response = model.generate_content(full_prompt)
-    reply_text = response.text
-    audio_data = get_audio_base64(reply_text, cust['voice'])
-    return jsonify({"reply": reply_text, "audio": audio_data})
-
-@app.route('/api/evaluate', methods=['POST'])
-def evaluate():
-    history = request.json.get('history', '')
-    prompt = "ประเมินบทสนทนานี้และให้คะแนน 1-10 พร้อมคำแนะนำ: " + history
-    evaluation = model.generate_content(prompt).text
-    return jsonify({"evaluation": evaluation})
-
-if __name__ == "__main__":
-    app.run(debug=True)
