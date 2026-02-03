@@ -11,37 +11,37 @@ GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
 
-# --- [ส่วนที่ 2: ข้อมูลลูกค้า (ปรับจูนเสียงผู้ชายใหม่)] ---
+# --- [ส่วนที่ 2: ข้อมูลลูกค้า (ใช้เสียง Voice A ทั้งหมดเพื่อความเสถียร)] ---
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า (Level 1)",
-        "desc": "วัยทำงาน 25 ปี - ขี้ระแวงและกลัวมิจฉาชีพ",
-        "prompt": "คุณคือ 'ฟ้า' (ผู้หญิง) อายุ 25 ปี ต้องพูดลงท้ายว่า 'ค่ะ' เสมอ คุณกังวลเรื่องแก๊งคอลเซ็นเตอร์มาก ตอบสั้นๆ ไม่เกิน 2 ประโยค ห้ามขายของเอง",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0} 
+        "desc": "วัยทำงาน 25 ปี - ขี้ระแวง",
+        "prompt": "คุณคือ 'ฟ้า' (ผู้หญิง) อายุ 25 ปี ต้องพูดลงท้ายว่า 'ค่ะ' เสมอ ตอบสั้นๆ ไม่เกิน 2 ประโยค ห้ามขายของเอง",
+        "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.05} # เสียงแหลมใส
     },
     "2": {
         "name": "คุณวิรัช (Level 2)",
-        "desc": "วัยสร้างตัว 45 ปี - เน้นความทางการและความมั่นคง",
-        "prompt": "คุณคือ 'วิรัช' (ผู้ชาย) อายุ 45 ปี เป็นคนสุขุม ต้องพูดลงท้ายว่า 'ครับ' เสมอ คุณจะรอฟังพนักงานนำเสนอข้อมูลที่น่าเชื่อถือเท่านั้น ถ้าพนักงานพูดจาไม่สุภาพคุณจะตำหนิทันที ตอบโต้ทุกครั้งที่พนักงานพูดมา ห้ามเงียบเด็ดขาด",
-        "voice": {"name": "th-TH-Standard-B", "pitch": 0.0, "rate": 1.0}
+        "desc": "วัยสร้างตัว 45 ปี - เน้นความทางการ",
+        "prompt": "คุณคือ 'วิรัช' (ผู้ชาย) อายุ 45 ปี ต้องพูดลงท้ายว่า 'ครับ' เสมอ คุณเป็นคนสุขุม รอฟังข้อมูลที่น่าเชื่อถือ ตอบโต้ทุกครั้งห้ามเงียบ",
+        "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 0.95} # ปรับ Pitch ต่ำเพื่อให้ดูทุ้มขึ้น
     },
     "3": {
         "name": "คุณป้ามาลี (Level 3)",
-        "desc": "จอมละเอียด - ถามเยอะ ขี้สงสัย แต่ชอบคนปากหวาน",
-        "prompt": "คุณคือ 'ป้ามาลี' (ผู้หญิง) เป็นป้าที่ช่างถาม ต้องพูดลงท้ายว่า 'ค่ะ' หรือ 'จ๊ะ' คุณจะถามรายละเอียดจุกจิก พนักงานต้องใจเย็นและชมคุณบ่อยๆ",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -2.0, "rate": 0.9}
+        "desc": "จอมละเอียด - ถามเยอะ",
+        "prompt": "คุณคือ 'ป้ามาลี' (ผู้หญิง) ต้องพูดลงท้ายว่า 'ค่ะ' หรือ 'จ๊ะ' ถามรายละเอียดเยอะ พนักงานต้องชมคุณบ่อยๆ",
+        "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9} # เสียงผู้ใหญ่
     },
     "4": {
         "name": "แม่แอน (Level 4)",
-        "desc": "คุณแม่ลูกอ่อน - อยากทำประกันสุขภาพให้ลูก 9 ขวบ",
-        "prompt": "คุณคือ 'แอน' (ผู้หญิง) ห่วงลูกมาก ต้องพูดลงท้ายว่า 'ค่ะ' คุณกังวลเรื่องค่าใช้จ่าย พนักงานต้องโน้มน้าวเรื่องความปลอดภัยของลูกคุณถึงจะยอมฟัง",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}
+        "desc": "คุณแม่ลูกอ่อน - ห่วงลูก",
+        "prompt": "คุณคือ 'แอน' (ผู้หญิง) ห่วงลูกมาก ต้องพูดลงท้ายว่า 'ค่ะ' กังวลเรื่องค่าใช้จ่าย",
+        "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0} # เสียงปกติ
     },
     "5": {
         "name": "คุณอัครเดช (Level 5)",
-        "desc": "นักธุรกิจใหญ่ - เวลาน้อย เน้นทุนประกันสูง",
-        "prompt": "คุณคือ 'อัครเดช' (ผู้ชาย) นักธุรกิจรวยมาก ต้องพูดลงท้ายว่า 'ครับ' คุณไม่ชอบฟังคำเกริ่นนำ ถ้าพนักงานไม่เข้าเรื่องทุนประกันสูงๆ หรือความคุ้มค่าระดับพรีเมียม คุณจะวางสายทันที ตอบโต้สั้นๆ และทรงพลัง",
-        "voice": {"name": "th-TH-Standard-B", "pitch": 0.0, "rate": 1.0}
+        "desc": "นักธุรกิจใหญ่ - เวลาน้อย",
+        "prompt": "คุณคือ 'อัครเดช' (ผู้ชาย) รวยมาก ต้องพูดลงท้ายว่า 'ครับ' ไม่ชอบฟังน้ำทุ่งทุ่ง เน้นทุนประกันสูงเท่านั้น",
+        "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0} # ปรับ Pitch ต่ำสุดให้ดูเป็นเสียงชายเข้มๆ
     }
 }
 
@@ -49,7 +49,6 @@ model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
-    # ลบข้อความในวงเล็บออกก่อนส่งไปสร้างเสียง
     clean_text = re.sub(r'\(.*?\)', '', text).strip()
     if not clean_text: return None
     
@@ -64,7 +63,7 @@ def get_audio_base64(text, voice_config):
         return response.json().get("audioContent") if response.status_code == 200 else None
     except: return None
 
-# --- [ส่วนที่ 3: UI ระบบอัตโนมัติ] ---
+# --- [ส่วนที่ 4: UI ระบบอัตโนมัติคงเดิม] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
@@ -100,7 +99,7 @@ HTML_TEMPLATE = """
         <div class="header">
             <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; padding:10px;">⬅️</button>
             <h2 id="active-cust-name" style="margin:0;">ลูกค้า</h2>
-            <div id="status" style="font-size: 0.8rem;">แตะไมค์เพื่อคุย</div>
+            <div id="status" style="font-size: 0.8rem;">แตะไมค์เพื่อเริ่มคุย</div>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
@@ -192,3 +191,24 @@ HTML_TEMPLATE = """
     </script>
 </body>
 </html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    lvl, user_msg = data.get('lvl'), data.get('message')
+    history = data.get('history', [])
+    cust = CUSTOMERS[lvl]
+    context = "\\n".join(history[-6:])
+    full_prompt = f"System: {cust['prompt']}\\n\\nHistory:\\n{context}\\nUser: {user_msg}"
+    response = model.generate_content(full_prompt)
+    reply_text = response.text
+    audio_data = get_audio_base64(reply_text, cust['voice'])
+    return jsonify({"reply": reply_text, "audio": audio_data})
+
+if __name__ == "__main__":
+    app.run(debug=True)
