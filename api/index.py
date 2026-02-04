@@ -6,59 +6,29 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- [ส่วนที่ 1: ตั้งค่า API Keys] ---
+# --- [ส่วนที่ 1: ตั้งค่า AI - บังคับใช้ Gemini 2.5 Flash เสมอ] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
+model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
-# --- [ส่วนที่ 2: ข้อมูลลูกค้าพร้อมด่านข้อโต้แย้งตามลำดับ] ---
-COLD_CALL_LOGIC = """
-คุณต้องตอบโต้ตาม "ลำดับความรู้สึก" ของลูกค้าจริงดังนี้:
-1. [เริ่มสาย]: หากพนักงานทักทายสั้นๆ ให้ตอบแค่ 'สวัสดีค่ะ/ครับ' หรือ 'ใครคะ/ครับ?'
-2. [เมื่อรู้ว่าโทรมาจากไหน]: ให้เริ่มถาม 'เอาเบอร์มาจากไหน?' หรือ 'ได้เบอร์มาจากที่ไหนครับ?'
-3. [เมื่อเริ่มเข้าเรื่องประกัน]: ให้ยิงข้อโต้แย้ง 4 รอบ (สลับกันไป):
-   - 'ประกันหรอ ไม่สนใจค่ะ มีเยอะแล้ว'
-   - 'ยุ่งอยู่ครับ ส่งเอกสารมาดูทางเมล์ก่อนได้ไหม'
-   - 'ช่วงนี้ไม่มีงบเลยค่ะ ไม่สะดวกคุย'
-   - 'พูดนานไหม ถ้าเกิน 2 นาทีไม่คุยนะ'
-4. [เงื่อนไขยอมฟัง]: ห้ามยอมให้เขานำเสนอโปรดักส์ จนกว่าเขาจะแจ้ง 'ชื่อ-นามสกุล', 'เลขใบอนุญาต' และ 'ขออัดเสียง' ครบถ้วน
-5. [ห้ามรู้ล่วงหน้า]: ห้ามพูดชื่อโปรดักส์ (เช่น 20/9 หรือ Wealth 888) จนกว่าพนักงานจะแนะนำชื่อนั้นออกมาเอง
+# --- [ส่วนที่ 2: ลอจิกการโต้ตอบแบบ Cold Call (4 รอบ)] ---
+COLD_CALL_PROMPT = """
+คุณคือลูกค้าที่ถูกโทรหาโดยพนักงานขายประกัน (Cold Call)
+กฎการสนทนา:
+1. [เริ่มสาย]: ตอบแค่ 'สวัสดีค่ะ/ครับ' หรือ 'ใครคะ/ครับ?' ห้ามรู้โปรดักส์ก่อน
+2. [ช่วงแรก]: ปฏิเสธอย่างน้อย 4 รอบ เช่น 'เอาเบอร์มาจากไหน', 'ยุ่งอยู่', 'มีเยอะแล้ว', 'ส่งเอกสารมาพอ'
+3. [เงื่อนไข]: ห้ามยอมฟังจนกว่าพนักงานจะแจ้ง ชื่อ, บ.พรูเด็นเชียล, เลขใบอนุญาต และขออัดเสียง ครบถ้วน
+4. [โปรดักส์]: เมื่อยอมฟังแล้ว ให้ถามจี้จุดตามโปรดักส์ที่ได้รับมอบหมาย
 """
 
 CUSTOMERS = {
-    "1": {
-        "name": "น้องฟ้า (Level 1)",
-        "desc": "Product: SuperSmartSave 20/9",
-        "prompt": f"คุณคือ 'ฟ้า' อายุ 25 ปี {COLD_CALL_LOGIC} เมื่อเข้าเรื่องโปรดักส์ ให้เน้นถามเรื่องเงินคืนแต่ละปีของ SuperSmartSave 20/9 ลงท้าย 'ค่ะ'",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.0}
-    },
-    "2": {
-        "name": "คุณวิรัช (Level 2)",
-        "desc": "Product: Double Sure Health",
-        "prompt": f"คุณคือ 'วิรัช' อายุ 45 ปี {COLD_CALL_LOGIC} เมื่อเข้าเรื่องโปรดักส์ ให้ถามจี้เรื่องค่าห้องและค่ารักษาเหมาจ่ายของ Double Sure ลงท้าย 'ครับ'",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 1.0}
-    },
-    "3": {
-        "name": "คุณป้ามาลี (Level 3)",
-        "desc": "Product: Wealth 888",
-        "prompt": f"คุณคือ 'ป้ามาลี' {COLD_CALL_LOGIC} เมื่อเข้าเรื่องโปรดักส์ ให้ถามจุกจิกเรื่องการเก็บเงินให้หลานใน Wealth 888 ลงท้าย 'ค่ะ/จ๊ะ'",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}
-    },
-    "4": {
-        "name": "แม่แอน (Level 4)",
-        "desc": "ยาก: ปฏิเสธหนัก (เสนอได้ทุกตัว)",
-        "prompt": f"คุณคือ 'แอน' คุณแม่ลูกอ่อน {COLD_CALL_LOGIC} ปฏิเสธหนักเป็นพิเศษ พนักงานต้องโน้มน้าวเก่งมากถึงจะยอมฟัง",
-        "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}
-    },
-    "5": {
-        "name": "คุณอัครเดช (Level 5)",
-        "desc": "ยากมาก: นักธุรกิจ (มีใบประกาศ)",
-        "prompt": f"คุณคือ 'อัครเดช' {COLD_CALL_LOGIC} คุณจะให้พนักงานมีโอกาสแก้ข้อโต้แย้งแค่ครั้งเดียว ถ้าพูดไม่เข้าประเด็นคุณจะวางสายทันที",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}
-    }
+    "1": {"name": "น้องฟ้า (Level 1)", "desc": "Product: SuperSmartSave 20/9", "prompt": COLD_CALL_PROMPT + "เน้นถาม SuperSmartSave 20/9 (ออม 9 ปี คุ้มครอง 20 ปี) ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.0}},
+    "2": {"name": "คุณวิรัช (Level 2)", "desc": "Product: Double Sure Health", "prompt": COLD_CALL_PROMPT + "เน้นถาม PRUMhao Mhao Double Sure (สุขภาพเหมาจ่าย) ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 1.0}},
+    "3": {"name": "คุณป้ามาลี (Level 3)", "desc": "Product: Wealth 888", "prompt": COLD_CALL_PROMPT + "เน้นถาม Wealth 888 (ออม 8 ปี คุ้มครองถึงอายุ 88) ลงท้าย 'ค่ะ/จ๊ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
+    "4": {"name": "แม่แอน (Level 4)", "desc": "ระดับยาก: ปฏิเสธหนัก (เสนอได้ทุกโปรดักส์)", "prompt": COLD_CALL_PROMPT + "ปฏิเสธหนักมากและจุกจิกเรื่องลูก ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}},
+    "5": {"name": "คุณอัครเดช (Level 5)", "desc": "ยากมาก: นักธุรกิจ (มีใบเซอร์)", "prompt": COLD_CALL_PROMPT + "ให้โอกาสแค่ครั้งเดียว ถ้าพูดไม่โดนใจจะวางสายทันที ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}}
 }
-
-model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
@@ -74,42 +44,39 @@ def get_audio_base64(text, voice_config):
         return res.json().get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: UI พร้อมระบบ iPhone Audio Unlock] ---
+# --- [ส่วนที่ 3: UI ที่รองรับ iPhone และแก้ภาษาต่างดาว] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Simulator Professional</title>
+    <title>Sales Mastery Academy</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; }
-        body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; }
+        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; --gray: #94a3b8; }
+        body { font-family: sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
-        .input-group { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+        .input-group { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         input { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ddd; font-size: 18px; text-align: center; }
-        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); cursor: pointer; text-align: left; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); cursor: pointer; text-align: left; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
         .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
         .customer { align-self: flex-start; background: #e2e8f0; }
-        .controls { padding: 30px; text-align: center; background: white; border-top: 1px solid #ddd; }
         .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; }
-        .btn-mic:disabled { background: #94a3b8 !important; opacity: 0.6; }
-        #result-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; padding: 20px; overflow-y: auto; }
-        .modal-body { background: white; padding: 25px; border-radius: 15px; max-width: 600px; margin: auto; }
+        .btn-mic:disabled { background: var(--gray) !important; opacity: 0.6; }
         #cert-area { display:none; }
         .certificate { width: 800px; height: 550px; padding: 40px; border: 15px double var(--gold); background: white; text-align: center; }
     </style>
 </head>
 <body>
     <div id="lobby">
-        <h1 style="color: var(--blue)">📞 Sales Training Simulator</h1>
+        <h1 style="color: var(--blue)">🏆 Sales Simulator</h1>
         <div class="input-group">
-            <input type="text" id="staff-name" placeholder="ระบุชื่อ-นามสกุล">
+            <input type="text" id="staff-name" placeholder="พิมพ์ชื่อ-นามสกุล">
         </div>
         <div id="customer-list"></div>
     </div>
@@ -120,27 +87,19 @@ HTML_TEMPLATE = """
             <h2 id="active-cust-name" style="margin:0;">ลูกค้า</h2>
         </div>
         <div id="chat-box"></div>
-        <div class="controls">
+        <div class="controls" style="text-align:center; padding:20px;">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <div id="status" style="margin-top:10px; font-size: 0.9rem;">แตะไมค์เพื่อพูด</div>
+            <p id="status" style="margin-top:10px;">แตะไมค์เพื่อพูด</p>
             <button id="eval-btn" style="display:none; width:100%; margin-top:20px; padding:15px; border-radius:30px; border:2px solid var(--blue); background:none; color:var(--blue); font-weight:bold;" onclick="showEvaluation()">🏁 ประเมินผล</button>
-        </div>
-    </div>
-
-    <div id="result-modal">
-        <div class="modal-body">
-            <div id="eval-content"></div>
-            <div id="cert-section"></div>
-            <button onclick="location.reload()" style="width:100%; padding:10px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:10px;">กลับหน้าหลัก</button>
         </div>
     </div>
 
     <div id="cert-area">
         <div id="certificate" class="certificate">
-            <h1 style="color: var(--blue); font-size: 40px;">CERTIFICATE OF ACHIEVEMENT</h1>
+            <h1 style="color: var(--blue); font-size: 40px;">CERTIFICATE</h1>
             <p style="font-size: 20px;">ขอมอบให้ คุณ <span id="pdf-staff-name"></span></p>
-            <p>ผู้พิชิตการทดสอบ Level 5</p>
-            <p>ณ วันที่ <span id="cert-date"></span></p>
+            <p>ผู้พิชิตด่านสูงสุด Level 5</p>
+            <p>โดย Sales Mastery Academy</p>
         </div>
     </div>
 
@@ -149,25 +108,25 @@ HTML_TEMPLATE = """
         var activeLvl = "";
         var isProcessing = false;
         var customers = {{ CUSTOMERS | tojson | safe }};
-        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var SpeechRecognition = window.window.SpeechRecognition || window.webkitSpeechRecognition;
         var recognition = new SpeechRecognition();
         recognition.lang = 'th-TH';
+        var player = new Audio();
 
-        var audioPlayer = new Audio();
-
+        // แสดงรายชื่อลูกค้า
         var listDiv = document.getElementById('customer-list');
-        for (var lvl in customers) {
-            (function(k){
+        for (var k in customers) {
+            (function(lvl){
                 var d = document.createElement('div');
-                d.className = 'cust-card';
-                d.onclick = function(){ startApp(k); };
-                d.innerHTML = '<b>' + customers[k].name + '</b><br><small>' + customers[k].desc + '</small>';
+                d.className = 'card';
+                d.onclick = function(){ startApp(lvl); };
+                d.innerHTML = '<b>' + customers[lvl].name + '</b><br><small>' + customers[lvl].desc + '</small>';
                 listDiv.appendChild(d);
-            })(lvl);
+            })(k);
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("ใส่ชื่อก่อนครับ"); return; }
+            if(!document.getElementById('staff-name').value) { alert("กรุณาใส่ชื่อพนักงาน"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
@@ -176,19 +135,19 @@ HTML_TEMPLATE = """
         }
 
         function unlockAudio() {
-            var silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-            silent.play().catch(function(){});
+            var s = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+            s.play().catch(function(){});
         }
 
         recognition.onresult = function(e) {
-            var text = e.results[0][0].transcript;
-            if (text.length > 1 && !isProcessing) { sendToAI(text); }
+            var t = e.results[0][0].transcript;
+            if (t.length > 1 && !isProcessing) { sendToAI(t); }
         };
 
         function toggleListen() {
             if (isProcessing) return;
             unlockAudio();
-            audioPlayer.pause();
+            player.pause();
             recognition.start();
             document.getElementById('mic-btn').style.opacity = "0.5";
             document.getElementById('status').innerText = "👂 กำลังฟัง...";
@@ -197,10 +156,10 @@ HTML_TEMPLATE = """
         async function sendToAI(text) {
             isProcessing = true;
             document.getElementById('mic-btn').disabled = true;
-            var chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML += '<div class="msg staff"><b>คุณ:</b> ' + text + '</div>';
+            var box = document.getElementById('chat-box');
+            box.innerHTML += '<div class="msg staff"><b>คุณ:</b> ' + text + '</div>';
             history_log.push("พนักงาน: " + text);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            box.scrollTop = box.scrollHeight;
 
             try {
                 const res = await fetch('/api/chat', {
@@ -209,15 +168,15 @@ HTML_TEMPLATE = """
                     body: JSON.stringify({message: text, lvl: activeLvl, history: history_log})
                 });
                 const data = await res.json();
-                chatBox.innerHTML += '<div class="msg customer"><b>' + customers[activeLvl].name + ':</b> ' + data.reply + '</div>';
+                box.innerHTML += '<div class="msg customer"><b>' + customers[activeLvl].name + ':</b> ' + data.reply + '</div>';
                 history_log.push(customers[activeLvl].name + ": " + data.reply);
-                chatBox.scrollTop = chatBox.scrollHeight;
+                box.scrollTop = box.scrollHeight;
 
                 if (data.audio) {
-                    audioPlayer.src = "data:audio/mp3;base64," + data.audio;
-                    await audioPlayer.play();
-                    document.getElementById('status').innerText = "🔈 ลูกค้ากำลังตอบ...";
-                    audioPlayer.onended = function() { resetUI(); };
+                    player.src = "data:audio/mp3;base64," + data.audio;
+                    await player.play();
+                    document.getElementById('status').innerText = "🔈 ลูกค้ากำลังพูด...";
+                    player.onended = function() { resetUI(); };
                 } else { resetUI(); }
             } catch (e) { resetUI(); }
         }
@@ -231,28 +190,47 @@ HTML_TEMPLATE = """
         }
 
         async function showEvaluation() {
-            document.getElementById('result-modal').style.display = 'block';
-            document.getElementById('eval-content').innerText = "⌛ กำลังประเมินผล...";
+            alert("กำลังประเมินผล...");
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({history: history_log.join("\\n")})
             });
             const data = await res.json();
-            document.getElementById('eval-content').innerHTML = "<h2>📊 ผลการประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
+            alert("ผลประเมิน:\\n" + data.evaluation);
             if (activeLvl === "5") {
-                document.getElementById('cert-section').innerHTML = '<button style="width:100%; padding:15px; background:var(--gold); color:white; border:none; border-radius:10px; font-weight:bold; margin-top:10px;" onclick="generatePDF()">📜 รับใบประกาศ Level 5</button>';
+                document.getElementById('pdf-staff-name').innerText = document.getElementById('staff-name').value;
+                var el = document.getElementById('certificate');
+                el.style.display = 'block';
+                html2pdf().from(el).save().then(function(){ el.style.display = 'none'; });
             }
-        }
-
-        function generatePDF() {
-            document.getElementById('pdf-staff-name').innerText = document.getElementById('staff-name').value;
-            document.getElementById('cert-date').innerText = new Date().toLocaleDateString('th-TH');
-            var el = document.getElementById('certificate');
-            var opt = { margin: 0, filename: 'Cert.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'letter', orientation: 'landscape' } };
-            document.getElementById('cert-area').style.display = 'block';
-            html2pdf().set(opt).from(el).save().then(function(){ document.getElementById('cert-area').style.display = 'none'; });
         }
     </script>
 </body>
 </html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
+    cust = CUSTOMERS[lvl]
+    context = "\\n".join(history[-6:])
+    full_prompt = "System: " + cust['prompt'] + "\\nHistory:\\n" + context + "\\nUser: " + user_msg
+    response = model.generate_content(full_prompt)
+    audio_data = get_audio_base64(response.text, cust['voice'])
+    return jsonify({"reply": response.text, "audio": audio_data})
+
+@app.route('/api/evaluate', methods=['POST'])
+def evaluate():
+    history = request.json.get('history', '')
+    prompt = "ประเมินบทสนทนาตามกฎ คปภ. และความถูกต้องของสินค้า: " + history
+    evaluation = model.generate_content(prompt).text
+    return jsonify({"evaluation": evaluation})
+
+if __name__ == "__main__":
+    app.run(debug=True)
