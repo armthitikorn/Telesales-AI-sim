@@ -11,45 +11,49 @@ GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
 
-# --- [ส่วนที่ 2: ข้อมูลลูกค้าและโปรดักส์] ---
+# --- [ส่วนที่ 2: ข้อมูลลูกค้าพร้อมด่านข้อโต้แย้งต้นสาย] ---
+# ทุกคนจะใช้กฎเดียวกันคือ: ต้องปฏิเสธ 4 ครั้งก่อนถึงจะยอมให้ขาย
+COLD_CALL_LOGIC = """
+กฎเหล็กในการสนทนา (สำคัญมาก):
+1. [ระยะเริ่มต้น]: คุณยังไม่รู้ว่าพนักงานขายอะไร คุณต้องทำตัวยุ่งและไม่อยากคุย
+2. [การปฏิเสธ]: คุณต้องปฏิเสธอย่างน้อย 4 รอบ ด้วยประโยคเหล่านี้ (สุ่มใช้):
+   - 'เอาข้อมูล/เบอร์มาจากไหนคะ/ครับ?'
+   - 'ประกันหรอ ไม่สนใจค่ะ/ครับ มีเยอะแล้ว'
+   - 'ยุ่งอยู่ครับ/ค่ะ ส่งเอกสารมาดูทางเมล์หรือไปรษณีย์ก่อนได้ไหม'
+   - 'พูดนานไหม ถ้าเกิน 2 นาทีไม่คุยนะ'
+3. [เงื่อนไขการยอมฟัง]: คุณจะยอมให้เขาพูดต่อก็ต่อเมื่อเขาแจ้งชื่อ-นามสกุล, เลขใบอนุญาต และขออนุญาตบันทึกเสียงอย่างถูกต้องตามกฎ คปภ. และพูดจาโน้มน้าวใจได้น่าสนใจ
+4. [ความยาว]: ตอบโต้ครั้งละ 1-2 ประโยค ไม่สั้นกุด และไม่ร่ายยาวจนน่ารำคาญ
+"""
+
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า (Level 1)",
-        "desc": "ถามเรื่อง: SuperSmartSave 20/9",
-        "prompt": """คุณคือ 'ฟ้า' อายุ 25 ปี สนใจออมเงินแต่ขี้ระแวง 
-        - โปรดักส์ที่พนักงานต้องเสนอ: SuperSmartSave 20/9 (ออม 9 ปี คุ้มครอง 20 ปี)
-        - หน้าที่ของคุณ: ถามเรื่องระยะเวลาฝาก, เงินคืนแต่ละปี, และความคุ้มครองกรณีเสียชีวิต 
-        - กฎ: ตอบโต้เป็นธรรมชาติ ไม่สั้นเกินไป ไม่ยาวเกินไป ลงท้ายด้วย 'ค่ะ' เสมอ""",
+        "desc": "Product: SuperSmartSave 20/9",
+        "prompt": f"คุณคือ 'ฟ้า' อายุ 25 ปี {COLD_CALL_LOGIC} หากยอมให้ขาย ให้ถามเรื่องโปรดักส์ SuperSmartSave 20/9 เน้นออมสั้นคุ้มครองยาว ลงท้าย 'ค่ะ'",
         "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.0}
     },
     "2": {
         "name": "คุณวิรัช (Level 2)",
-        "desc": "ถามเรื่อง: PRUMhao Mhao Double Sure",
-        "prompt": """คุณคือ 'วิรัช' อายุ 45 ปี สนใจประกันสุขภาพ 
-        - โปรดักส์ที่พนักงานต้องเสนอ: PRUMhao Mhao Double Sure (สุขภาพเหมาจ่าย)
-        - หน้าที่ของคุณ: ถามเรื่องวงเงินเหมาจ่าย, ค่าห้อง, และครอบคลุมการผ่าตัดไหม
-        - กฎ: พูดจาสุภาพ ลงท้ายด้วย 'ครับ' ตอบโต้แบบผู้ใหญ่ที่มีเหตุผล""",
-        "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 0.95}
+        "desc": "Product: Double Sure Health",
+        "prompt": f"คุณคือ 'วิรัช' อายุ 45 ปี {COLD_CALL_LOGIC} หากยอมให้ขาย ให้ถามเรื่องโปรดักส์ PRUMhao Mhao Double Sure เน้นค่ารักษาเหมาจ่าย ลงท้าย 'ครับ'",
+        "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 1.0}
     },
     "3": {
         "name": "คุณป้ามาลี (Level 3)",
-        "desc": "ถามเรื่อง: PRUSmart Wealth 888",
-        "prompt": """คุณคือ 'ป้ามาลี' อายุ 60 ปี อยากเก็บเงินให้หลาน 
-        - โปรดักส์ที่พนักงานต้องเสนอ: PRUSmart Wealth 888 (ออม 8 ปี คุ้มครองถึงอายุ 88)
-        - หน้าที่ของคุณ: ถามจุกจิกเรื่องผลตอบแทนรวม, อายุที่คุ้มครองถึง, และทำไมต้องออมตั้ง 8 ปี
-        - กฎ: พูดช้าลงเล็กน้อย ถามเยอะๆ ขี้สงสัย ลงท้ายด้วย 'ค่ะ/จ๊ะ'""",
+        "desc": "Product: Wealth 888",
+        "prompt": f"คุณคือ 'ป้ามาลี' {COLD_CALL_LOGIC} หากยอมให้ขาย ให้ถามเรื่องโปรดักส์ PRUSmart Wealth 888 เน้นเก็บเงินให้หลาน ลงท้าย 'ค่ะ/จ๊ะ'",
         "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}
     },
     "4": {
         "name": "แม่แอน (Level 4)",
-        "desc": "ถามได้ทุกโปรดักส์ (ระดับยาก)",
-        "prompt": "คุณคือ 'แอน' คุณแม่ลูกอ่อน ปฏิเสธเก่งและมีข้อโต้แย้งเยอะ พนักงานต้องเสนอโปรดักส์ให้ตรงกับความต้องการของครอบครัวคุณและต้องถูกต้องตามเงื่อนไข คปภ.",
+        "desc": "ยาก: ปฏิเสธหนักและถามจุกจิก",
+        "prompt": f"คุณคือ 'แอน' คุณแม่ลูกอ่อน {COLD_CALL_LOGIC} คุณจะปฏิเสธหนักกว่าคนอื่น และถามจี้เรื่องความคุ้มครองลูกสาว ยอมฟังยากมาก",
         "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}
     },
     "5": {
         "name": "คุณอัครเดช (Level 5)",
-        "desc": "ถามได้ทุกโปรดักส์ (ระดับยากมาก)",
-        "prompt": "คุณคือ 'อัครเดช' นักธุรกิจใหญ่ เวลาน้อยและเน้นตัวเลขความคุ้มค่าสูงสุด หากพนักงานให้ข้อมูลผิดแม้แต่นิดเดียวคุณจะวางสายทันที",
+        "desc": "ยากมาก: นักธุรกิจเวลาน้อย (มีใบประกาศ)",
+        "prompt": f"คุณคือ 'อัครเดช' นักธุรกิจ {COLD_CALL_LOGIC} คุณจะให้เวลาแค่ 1 นาทีในการเปิดใจ ถ้าพูดไม่รู้เรื่องหรือไม่ถูกต้องตามกฎ คปภ. คุณจะวางสายทันที",
         "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}
     }
 }
@@ -70,61 +74,56 @@ def get_audio_base64(text, voice_config):
         return res.json().get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: UI ที่รองรับ iPhone และใบประกาศ Level 5] ---
+# --- [ส่วนที่ 3: UI ที่รองรับ iPhone และระบบล็อกไมค์] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Simulator Professional</title>
+    <title>Sales Simulator Elite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; }
-        body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; -webkit-tap-highlight-color: transparent; }
+        :root { --blue: #1e3a8a; --red: #be123c; --gold: #b45309; --gray: #94a3b8; }
+        body { font-family: 'Sarabun', sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
         .input-group { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input[type="text"] { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; margin-bottom: 10px; }
-        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); cursor: pointer; text-align: left; transition: 0.2s; }
-        .cust-card:active { transform: scale(0.98); background: #eee; }
+        input { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ddd; font-size: 18px; text-align: center; }
+        .cust-card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); cursor: pointer; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
-        .header { background: var(--blue); color: white; padding: 15px; text-align: center; position: sticky; top:0; z-index: 10; }
+        .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
-        .msg { padding: 12px 18px; border-radius: 15px; max-width: 85%; line-height: 1.5; font-size: 16px; }
+        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
-        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
-        .controls { padding: 25px; text-align: center; background: white; border-top: 1px solid #ddd; padding-bottom: 40px; }
-        .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .btn-mic:disabled { background: #94a3b8; opacity: 0.6; }
-        
-        #result-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index: 1000; padding: 20px; overflow-y: auto; }
+        .customer { align-self: flex-start; background: #e2e8f0; }
+        .controls { padding: 30px; text-align: center; background: white; border-top: 1px solid #ddd; }
+        .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; }
+        .btn-mic:disabled { background: var(--gray) !important; opacity: 0.6; }
+        #result-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index: 1000; padding: 20px; overflow-y: auto; }
         .modal-body { background: white; padding: 25px; border-radius: 15px; max-width: 600px; margin: auto; }
-        .cert-btn { background: var(--gold); color: white; border: none; padding: 15px; border-radius: 10px; width: 100%; font-weight: bold; margin-top: 15px; }
-
-        /* Certificate */
         #cert-area { display:none; }
-        .certificate { width: 800px; height: 550px; padding: 40px; border: 15px double var(--gold); background: white; text-align: center; position: relative; }
+        .certificate { width: 800px; height: 550px; padding: 40px; border: 15px double var(--gold); background: white; text-align: center; color: #333; margin: auto; }
     </style>
 </head>
 <body>
     <div id="lobby">
-        <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
+        <h1 style="color: var(--blue)">🏆 Sales Mastery Simulator</h1>
         <div class="input-group">
-            <p>พิมพ์ชื่อพนักงานเพื่อเริ่มการฝึก</p>
-            <input type="text" id="staff-name" placeholder="ชื่อ-นามสกุล ของท่าน">
+            <p>พิมพ์ชื่อพนักงานเพื่อเริ่มฝึก</p>
+            <input type="text" id="staff-name" placeholder="ชื่อ - นามสกุล">
         </div>
         <div id="customer-list"></div>
     </div>
 
     <div id="main-app">
         <div class="header">
-            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; padding:10px; font-size: 20px;">🏠</button>
+            <button onclick="location.reload()" style="float:left; color:white; background:none; border:none; padding:10px;">🏠</button>
             <h2 id="active-cust-name" style="margin:0;">ลูกค้า</h2>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <div id="status" style="margin-top:10px; font-size: 14px; color: #666;">แตะไมค์เพื่อพูด</div>
+            <div id="status" style="margin-top:10px; font-size: 0.9rem;">แตะไมค์เพื่อเริ่มคุย</div>
             <button id="eval-btn" style="display:none; width:100%; margin-top:20px; padding:15px; border-radius:30px; border:2px solid var(--blue); background:none; color:var(--blue); font-weight:bold;" onclick="showEvaluation()">🏁 จบการสนทนาและประเมินผล</button>
         </div>
     </div>
@@ -139,10 +138,9 @@ HTML_TEMPLATE = """
 
     <div id="cert-area">
         <div id="certificate" class="certificate">
-            <h1 style="color: var(--blue); font-size: 40px;">CERTIFICATE OF EXCELLENCE</h1>
-            <p style="font-size: 20px;">ขอมอบใบประกาศฉบับนี้ให้เพื่อรับรองว่า</p>
-            <h2 id="pdf-staff-name" style="font-size: 35px; color: var(--red); text-decoration: underline;"></h2>
-            <p style="font-size: 20px;">ได้ผ่านการทดสอบจำลองการขายระดับสูงสุด (Level 5)</p>
+            <h1 style="color: var(--blue); font-size: 40px;">CERTIFICATE OF ACHIEVEMENT</h1>
+            <p style="font-size: 20px;">ขอมอบใบประกาศฉบับนี้ให้แก่ คุณ <span id="pdf-staff-name"></span></p>
+            <p style="font-size: 20px;">ผู้ผ่านการทดสอบจำลองการขายระดับสูงสุด (Level 5)</p>
             <p style="font-size: 18px; margin-top: 50px;">ให้ไว้ ณ วันที่ <span id="cert-date"></span><br>โดย Sales Mastery Academy</p>
         </div>
     </div>
@@ -153,15 +151,11 @@ HTML_TEMPLATE = """
         var isProcessing = false;
         var customers = {{ CUSTOMERS | tojson | safe }};
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        var recognition = null;
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'th-TH';
-        }
+        var recognition = new SpeechRecognition();
+        recognition.lang = 'th-TH';
 
         var audioPlayer = new Audio();
 
-        // แสดงรายชื่อลูกค้า
         var listDiv = document.getElementById('customer-list');
         for (var lvl in customers) {
             (function(k){
@@ -174,13 +168,11 @@ HTML_TEMPLATE = """
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("กรุณาใส่ชื่อพนักงานก่อนครับ"); return; }
+            if(!document.getElementById('staff-name').value) { alert("ใส่ชื่อก่อนครับ"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('active-cust-name').innerText = customers[lvl].name;
-            
-            // iPhone Audio Unlock: ต้องมีการเล่นเสียงสั้นๆ จากการสัมผัสครั้งแรก
             unlockAudio();
         }
 
@@ -189,17 +181,14 @@ HTML_TEMPLATE = """
             silent.play().catch(function(){});
         }
 
-        if (recognition) {
-            recognition.onresult = function(e) {
-                var text = e.results[0][0].transcript;
-                if (text.length > 1 && !isProcessing) { sendToAI(text); }
-            };
-            recognition.onend = function() { document.getElementById('mic-btn').style.opacity = "1"; };
-        }
+        recognition.onresult = function(e) {
+            var text = e.results[0][0].transcript;
+            if (text.length > 1 && !isProcessing) { sendToAI(text); }
+        };
 
         function toggleListen() {
             if (isProcessing) return;
-            unlockAudio(); // Unlock audio every time mic is clicked for iPhone stability
+            unlockAudio();
             audioPlayer.pause();
             recognition.start();
             document.getElementById('mic-btn').style.opacity = "0.5";
@@ -244,7 +233,7 @@ HTML_TEMPLATE = """
 
         async function showEvaluation() {
             document.getElementById('result-modal').style.display = 'block';
-            document.getElementById('eval-content').innerText = "⏳ กำลังประเมินผลการขายและความถูกต้องของ คปภ...";
+            document.getElementById('eval-content').innerText = "⏳ กำลังประเมินผล...";
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -252,29 +241,18 @@ HTML_TEMPLATE = """
             });
             const data = await res.json();
             document.getElementById('eval-content').innerHTML = "<h2>📊 ผลการประเมิน</h2>" + data.evaluation.replace(/\\n/g, '<br>');
-            
-            // เฉพาะด่าน 5 ถึงจะโชว์ปุ่มใบประกาศ
             if (activeLvl === "5") {
-                document.getElementById('cert-section').innerHTML = '<button class="cert-btn" onclick="generatePDF()">📜 รับใบประกาศนียบัตร Level 5</button>';
-            } else {
-                document.getElementById('cert-section').innerHTML = '';
+                document.getElementById('cert-section').innerHTML = '<button style="width:100%; padding:15px; background:var(--gold); color:white; border:none; border-radius:10px; font-weight:bold; margin-top:10px;" onclick="generatePDF()">📜 รับใบประกาศ Level 5</button>';
             }
         }
 
         function generatePDF() {
             document.getElementById('pdf-staff-name').innerText = document.getElementById('staff-name').value;
             document.getElementById('cert-date').innerText = new Date().toLocaleDateString('th-TH');
-            var element = document.getElementById('certificate');
-            var opt = {
-                margin: 0,
-                filename: 'Sales_Mastery_L5.pdf',
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
-            };
+            var el = document.getElementById('certificate');
+            var opt = { margin: 0, filename: 'Sales_Mastery_Cert.pdf', html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' } };
             document.getElementById('cert-area').style.display = 'block';
-            html2pdf().set(opt).from(element).save().then(function() {
-                document.getElementById('cert-area').style.display = 'none';
-            });
+            html2pdf().set(opt).from(el).save().then(function(){ document.getElementById('cert-area').style.display = 'none'; });
         }
     </script>
 </body>
@@ -290,36 +268,32 @@ def chat():
     data = request.json
     lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
     cust = CUSTOMERS[lvl]
-    
-    # ดึงบริบทจากไฟล์แนบที่ user เคยให้ไว้ (ใช้ความสามารถของ Gemini ในการจำข้อมูลโปรดักส์)
     context = "\\n".join(history[-6:])
-    full_prompt = f"""คุณคือลูกค้าในสถานการณ์จำลองการขายประกันทางโทรศัพท์ 
-    ข้อมูลบทบาทของคุณ: {cust['prompt']}
-    ประวัติการคุย: {context}
+    full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
+    ประวัติการสนทนา: {context}
+    คำพูดพนักงานล่าสุด: {user_msg}
     
-    หน้าที่ของคุณ:
-    1. ตอบโต้คำพูดของพนักงานขาย (User: {user_msg})
-    2. ถามคำถามเกี่ยวกับโปรดักส์ที่ได้รับมอบหมาย เพื่อทดสอบความรู้พนักงาน
-    3. ห้ามเสนอขายเอง และห้ามตอบตกลงง่ายเกินไป
+    คำสั่งเฉพาะ:
+    - ในช่วง 4-5 ประโยคแรก คุณต้องปฏิเสธและยื้อเวลาตามกฎ Cold Call
+    - ห้ามตอบตกลงฟังจนกว่าเขาจะแนะนำตัวครบ (ชื่อ, บ.พรูเด็นเชียล, เลขใบอนุญาต, บันทึกเสียง)
+    - หลังจากเขาสร้างสัมพันธ์ได้ดีแล้ว จึงเริ่มถามคำถามเกี่ยวกับผลิตภัณฑ์ตามด่านของคุณ
     """
-    
     response = model.generate_content(full_prompt)
-    reply_text = response.text
-    audio_data = get_audio_base64(reply_text, cust['voice'])
-    return jsonify({"reply": reply_text, "audio": audio_data})
+    audio_data = get_audio_base64(response.text, cust['voice'])
+    return jsonify({"reply": response.text, "audio": audio_data})
 
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
     history = request.json.get('history', '')
-    prompt = f"""คุณคือผู้เชี่ยวชาญด้านการฝึกอบรมการขายประกันและกฎ คปภ. 
-    โปรดประเมินบทสนทนานี้:
+    prompt = f"""ในฐานะโค้ชสอนการขาย ประเมินการสนทนานี้:
     {history}
     
-    เกณฑ์การประเมิน (สรุปเป็นข้อๆ):
-    1. ความถูกต้องตามประกาศ คปภ. (การแนะนำตัว, เลขใบอนุญาต, ขออนุญาตบันทึกเสียง)
-    2. ความถูกต้องของข้อมูลผลิตภัณฑ์ (SuperSmartSave 20/9, Double Sure, Wealth 888) ตามข้อมูลที่พนักงานนำเสนอ
-    3. ทักษะการโน้มน้าวใจและการตอบข้อโต้แย้ง
-    4. ให้คะแนนรวม 1-10
+    หัวข้อที่ต้องสรุป:
+    1. การแก้ข้อโต้แย้งต้นสาย (Handle Objections) ทำได้ดีแค่ไหน
+    2. ความถูกต้องตามประกาศ คปภ. (แนะนำตัว, แจ้งเลขใบอนุญาต, ขออัดเสียง)
+    3. ความถูกต้องของข้อมูลสินค้า (ตามโปรดักส์ประจำด่าน)
+    4. การปิดการขาย
+    ให้คะแนนรวม 1-10 พร้อมคำแนะนำ
     """
     evaluation = model.generate_content(prompt).text
     return jsonify({"evaluation": evaluation})
