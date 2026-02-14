@@ -26,7 +26,7 @@ CUSTOMERS = {
         "name": "น้องฟ้า", 
         "desc": "SuperSmartSave 20/9", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี คุ้มครอง 20 ปี", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.8, "rate": 1.05}
+        "voice": {"name": "th-TH-Wavenet-A", "pitch": 0.8, "rate": 1.05}
     },
     "2": {
         "name": "คุณวิรัช", 
