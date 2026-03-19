@@ -1,28 +1,38 @@
 import os
-import requests
 import re
+import requests
 from flask import Flask, request, jsonify
 import google.generativeai as genai
 
+# ==================================================
+# ✅ FLASK ENTRYPOINT (สำคัญมาก)
+# ==================================================
 app = Flask(__name__)
 
-# =======================
-# 1) CONFIG
-# =======================
+# ==================================================
+# ✅ ENV CONFIG
+# ==================================================
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 
-genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+if not GENAI_API_KEY:
+    raise RuntimeError("Missing GENAI_API_KEY")
 
-# =======================
-# 2) CUSTOMER CONFIG
-# =======================
+if not TTS_API_KEY:
+    raise RuntimeError("Missing TTS_API_KEY")
+
+genai.configure(api_key=GENAI_API_KEY)
+model = genai.GenerativeModel("gemini-2.5-flash")
+
+# ==================================================
+# ✅ CUSTOMER CONFIG
+# ==================================================
 COLD_CALL_RULES = """
-คุณคือลูกค้าที่มีความจำดี:
+คุณคือลูกค้าที่เป็นมนุษย์จริง
 - ห้ามถามชื่อพนักงานซ้ำ
-- ผู้หญิงใช้ ฉัน/เรา
+- ผู้หญิงใช้ ฉัน / เรา
 - ผู้ชายใช้ ผม
+- ถ้าพนักงานพูดยาวหรือสคริปต์ → แสดงอาการเบื่อ
 """
 
 CUSTOMERS = {
@@ -43,15 +53,11 @@ CUSTOMERS = {
     }
 }
 
-# =======================
-# 3) GOOGLE TTS
-# =======================
-def get_audio_base64(text, voice_config):
-    if not TTS_API_KEY:
-        print("Missing TTS_API_KEY")
-        return None
-
-    # ✅ ล้างวงเล็บให้ถูกต้อง
+# ==================================================
+# ✅ GOOGLE TTS (กันเสียงหาย)
+# ==================================================
+def get_audio_base64(text: str, voice: dict):
+    # ล้างวงเล็บ (กันเสียงเงียบ)
     clean_text = re.sub(r'[\(\[\（].*?[\)\]\）]', '', text, flags=re.DOTALL)
     clean_text = re.sub(
         r'^(System|User|Assistant|ลูกค้า|พนักงาน)\s*[:：]\s*',
@@ -59,53 +65,58 @@ def get_audio_base64(text, voice_config):
         clean_text
     ).strip()
 
-    # ✅ fallback กันเสียงเงียบ
-    if not clean_text.strip():
+    # ✅ fallback ถ้าข้อความว่าง
+    if not clean_text:
         clean_text = text.strip()
+
+    if not clean_text:
+        return None
 
     url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={TTS_API_KEY}"
     payload = {
         "input": {"text": clean_text},
         "voice": {
             "languageCode": "th-TH",
-            "name": voice_config["name"]
+            "name": voice["name"]
         },
         "audioConfig": {
             "audioEncoding": "MP3",
-            "pitch": voice_config["pitch"],
-            "speakingRate": voice_config["rate"]
+            "pitch": voice["pitch"],
+            "speakingRate": voice["rate"]
         }
     }
 
     try:
         res = requests.post(url, json=payload, timeout=10)
         if res.status_code != 200:
-            print("Google TTS Error:", res.text)
+            print("TTS ERROR:", res.text)
             return None
         return res.json().get("audioContent")
     except Exception as e:
-        print("TTS Network Error:", e)
+        print("TTS NETWORK ERROR:", e)
         return None
 
-# =======================
-# 4) CHAT API
-# =======================
-@app.route('/api/chat', methods=['POST'])
+# ==================================================
+# ✅ CHAT API
+# ==================================================
+@app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.json or {}
-    lvl = data.get('lvl', '1')
-    user_msg = data.get('message', '')
-    history = data.get('history', [])
 
-    cust = CUSTOMERS.get(lvl, CUSTOMERS["1"])
+    lvl = str(data.get("lvl", "1"))
+    user_msg = data.get("message", "")
+    history = data.get("history", [])
 
+    customer = CUSTOMERS.get(lvl, CUSTOMERS["1"])
+
+    # ✅ รองรับ history ได้หลายรูปแบบ
     context = "\n".join(
         h if isinstance(h, str) else h.get("text", "")
         for h in history
     )
 
     full_prompt = f"""
-System: {cust['prompt']}
+System: {customer['prompt']}
 History:
 {context}
 User: {user_msg}
@@ -121,20 +132,23 @@ User: {user_msg}
         )
 
         reply_text = response.text or ""
-        audio_data = get_audio_base64(reply_text, cust["voice"])
+        audio = get_audio_base64(reply_text, customer["voice"])
 
         return jsonify({
             "reply": reply_text,
-            "audio": audio_data
+            "audio": audio,
+            "character": customer["name"]
         })
 
     except Exception as e:
-        print("Gemini Error:", e)
+        print("GEMINI ERROR:", e)
         return jsonify({
-            "reply": "ขออภัยค่ะ ระบบขัดข้องเล็กน้อย",
+            "reply": "ขออภัยค่ะ ระบบขัดข้องชั่วคราว",
             "audio": None
         })
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+# ==================================================
+# ❌ ห้ามมี app.run() ใน production
+# Platform จะเป็นคนรันให้เอง
+# ==================================================
 ``
