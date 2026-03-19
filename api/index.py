@@ -1,154 +1,42 @@
 import os
-import re
 import requests
-from flask import Flask, request, jsonify
+import re
+from flask import Flask, request, jsonify, render_template_string
 import google.generativeai as genai
 
-# ==================================================
-# ✅ FLASK ENTRYPOINT (สำคัญมาก)
-# ==================================================
 app = Flask(__name__)
 
-# ==================================================
-# ✅ ENV CONFIG
-# ==================================================
+# --- [ส่วนที่ 1: ตั้งค่า AI - บังคับใช้ Gemini 2.5 Flash] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-
-if not GENAI_API_KEY:
-    raise RuntimeError("Missing GENAI_API_KEY")
-
-if not TTS_API_KEY:
-    raise RuntimeError("Missing TTS_API_KEY")
-
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
-# ==================================================
-# ✅ CUSTOMER CONFIG
-# ==================================================
+# --- [ส่วนที่ 2: ลอจิก Cold Call และ ความจำ] ---
 COLD_CALL_RULES = """
-คุณคือลูกค้าที่เป็นมนุษย์จริง
-- ห้ามถามชื่อพนักงานซ้ำ
-- ผู้หญิงใช้ ฉัน / เรา
-- ผู้ชายใช้ ผม
-- ถ้าพนักงานพูดยาวหรือสคริปต์ → แสดงอาการเบื่อ
+คุณคือลูกค้าที่มีความจำดีเยี่ยมและเข้มงวด:
+1. [การจดจำ]: คุณต้องอ่านประวัติการสนทนาทั้งหมดอย่างละเอียด หากพนักงานแจ้งชื่อ, เลขใบอนุญาต หรือขออัดเสียงไปแล้ว "ห้ามถามซ้ำ" และ "ห้ามทำเป็นลืม"
+2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' (ห้ามเรียกชื่อตัวเอง และห้ามมีหัวข้อชื่อนำหน้าข้อความ)
+3. [ลำดับสาย]: เริ่มจากระแวง -> ปฏิเสธ 4-5 รอบ -> ยอมฟังเมื่อพูดถูกต้องตามกฎ คปภ.
 """
 
 CUSTOMERS = {
-    "1": {
-        "name": "น้องฟ้า",
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' ผู้หญิง อายุ 25 ปี ลงท้าย 'ค่ะ'",
-        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.0, "rate": 1.1}
-    },
-    "2": {
-        "name": "คุณวิรัช",
-        "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' ผู้ชาย อายุ 45 ปี ลงท้าย 'ครับ'",
-        "voice": {"name": "th-TH-Neural2-C", "pitch": 0.0, "rate": 1.0}
-    },
-    "5": {
-        "name": "คุณอัครเดช",
-        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' นักธุรกิจดุ ลงท้าย 'ครับ'",
-        "voice": {"name": "th-TH-Neural2-C", "pitch": -2.0, "rate": 1.0}
-    }
+    "1": {"name": "น้องฟ้า", "desc": "SuperSmartSave 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี คุ้มครอง 20 ปี", "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.0}},
+    "2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพเหมาจ่าย", "voice": {"name": "th-TH-Standard-A", "pitch": -4.0, "rate": 1.0}},
+    "3": {"name": "คุณป้ามาลี", "desc": "Wealth 888", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดกให้หลาน", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
+    "4": {"name": "แม่แอน", "desc": "ยาก: ปฏิเสธหนักมาก", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธหนักและห่วงเรื่องค่าใช้จ่ายลูก ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}},
+    "5": {"name": "คุณอัครเดช", "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Standard-A", "pitch": -5.0, "rate": 1.0}}
 }
 
-# ==================================================
-# ✅ GOOGLE TTS (กันเสียงหาย)
-# ==================================================
-def get_audio_base64(text: str, voice: dict):
-    # ล้างวงเล็บ (กันเสียงเงียบ)
-    clean_text = re.sub(r'[\(\[\（].*?[\)\]\）]', '', text, flags=re.DOTALL)
-    clean_text = re.sub(
-        r'^(System|User|Assistant|ลูกค้า|พนักงาน)\s*[:：]\s*',
-        '',
-        clean_text
-    ).strip()
-
-    # ✅ fallback ถ้าข้อความว่าง
-    if not clean_text:
-        clean_text = text.strip()
-
-    if not clean_text:
-        return None
-
-    url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={TTS_API_KEY}"
+def get_audio_base64(text, voice_config):
+    if not TTS_API_KEY: return None
+    clean_text = re.sub(r'^.*?:', '', text)
+    clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
+    if not clean_text: return None
+    url = "https://texttospeech.googleapis.com/v1/text:synthesize?key=" + TTS_API_KEY
     payload = {
         "input": {"text": clean_text},
-        "voice": {
-            "languageCode": "th-TH",
-            "name": voice["name"]
-        },
-        "audioConfig": {
-            "audioEncoding": "MP3",
-            "pitch": voice["pitch"],
-            "speakingRate": voice["rate"]
-        }
+        "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
+        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
     }
-
     try:
-        res = requests.post(url, json=payload, timeout=10)
-        if res.status_code != 200:
-            print("TTS ERROR:", res.text)
-            return None
-        return res.json().get("audioContent")
-    except Exception as e:
-        print("TTS NETWORK ERROR:", e)
-        return None
-
-# ==================================================
-# ✅ CHAT API
-# ==================================================
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    data = request.json or {}
-
-    lvl = str(data.get("lvl", "1"))
-    user_msg = data.get("message", "")
-    history = data.get("history", [])
-
-    customer = CUSTOMERS.get(lvl, CUSTOMERS["1"])
-
-    # ✅ รองรับ history ได้หลายรูปแบบ
-    context = "\n".join(
-        h if isinstance(h, str) else h.get("text", "")
-        for h in history
-    )
-
-    full_prompt = f"""
-System: {customer['prompt']}
-History:
-{context}
-User: {user_msg}
-"""
-
-    try:
-        response = model.generate_content(
-            full_prompt,
-            generation_config={
-                "temperature": 0.6,
-                "top_p": 0.9
-            }
-        )
-
-        reply_text = response.text or ""
-        audio = get_audio_base64(reply_text, customer["voice"])
-
-        return jsonify({
-            "reply": reply_text,
-            "audio": audio,
-            "character": customer["name"]
-        })
-
-    except Exception as e:
-        print("GEMINI ERROR:", e)
-        return jsonify({
-            "reply": "ขออภัยค่ะ ระบบขัดข้องชั่วคราว",
-            "audio": None
-        })
-
-# ==================================================
-# ❌ ห้ามมี app.run() ใน production
-# Platform จะเป็นคนรันให้เอง
-# ==================================================
-``
