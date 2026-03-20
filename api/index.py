@@ -28,34 +28,27 @@ CUSTOMERS = {
     "5": {"name": "คุณอัครเดช", "desc": "นักธุรกิจใหญ่", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อย", "voice": {"name": "th-TH-Studio-C", "pitch": -0.5, "rate": 1.05}}
 }
 def get_audio_base64(text, voice_config):
-    if not TTS_API_KEY: 
-        print("❌ Error: ไม่พบ TTS_API_KEY ใน Environment")
-        return None
-    
+    if not TTS_API_KEY: return None
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
     if not clean_text: return None
     
-    # ลองเปลี่ยนเป็น v1beta1 สำหรับเสียง Studio
-    url = "https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=" + TTS_API_KEY
+    # เปลี่ยนจาก v1 เป็น v1beta1 เพื่อรองรับเสียง Studio
+    url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
+    
     payload = {
         "input": {"text": clean_text},
         "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
-        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
+        "audioConfig": {
+            "audioEncoding": "MP3", 
+            "pitch": voice_config["pitch"], 
+            "speakingRate": voice_config["rate"]
+        }
     }
-    
     try:
         res = requests.post(url, json=payload)
-        response_json = res.json()
-        
-        if "error" in response_json:
-            print(f"❌ Google TTS Error: {response_json['error']['message']}")
-            return None
-            
-        return response_json.get("audioContent")
-    except Exception as e:
-        print(f"❌ Connection Error: {e}")
-        return None
+        return res.json().get("audioContent")
+    except: return None
 
 # --- [ส่วนที่ 3: UI และ JavaScript] ---
 HTML_TEMPLATE = """
