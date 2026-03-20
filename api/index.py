@@ -6,44 +6,57 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- [ส่วนที่ 1: ตั้งค่า AI - บังคับใช้ Gemini 2.5 Flash] ---
+# --- [ส่วนที่ 1: ตั้งค่า API] ---
+# บังคับใช้ Gemini 2.5 Flash ตามที่อาร์มต้องการ
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
-# --- [ส่วนที่ 2: ลอจิก Cold Call และ ความจำ] ---
+if GENAI_API_KEY:
+    genai.configure(api_key=GENAI_API_KEY)
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+
+# --- [ส่วนที่ 2: ลอจิก Cold Call และ รายชื่อลูกค้า] ---
 COLD_CALL_RULES = """
 คุณคือลูกค้าที่มีความจำดีเยี่ยมและเข้มงวด:
-1. [การจดจำ]: คุณต้องอ่านประวัติการสนทนาทั้งหมดอย่างละเอียด หากพนักงานแจ้งชื่อ, เลขใบอนุญาต หรือขออัดเสียงไปแล้ว "ห้ามถามซ้ำ" และ "ห้ามทำเป็นลืม"
-2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' (ห้ามเรียกชื่อตัวเอง และห้ามมีหัวข้อชื่อนำหน้าข้อความ)
+1. [การจดจำ]: ห้ามถามซ้ำในสิ่งที่พนักงานพูดไปแล้ว
+2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม'
 3. [ลำดับสาย]: เริ่มจากระแวง -> ปฏิเสธ 4-5 รอบ -> ยอมฟังเมื่อพูดถูกต้องตามกฎ คปภ.
 """
 
 CUSTOMERS = {
-    "1": {"name": "น้องฟ้า", "desc": "SuperSmartSave 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า'...", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
-    "2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช'...", "voice": {"name": "th-TH-Standard-B", "pitch": -1.0, "rate": 1.0}}, # เปลี่ยนเป็น Standard-B
-    "3": {"name": "คุณป้ามาลี", "desc": "Wealth 888", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี'...", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
-    "4": {"name": "แม่แอน", "desc": "ยาก...", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน'...", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
-    "5": {"name": "คุณอัครเดช", "desc": "ยากมาก...", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช'...", "voice": {"name": "th-TH-Standard-B", "pitch": -0.5, "rate": 1.0}} # เปลี่ยนเป็น Standard-B
+    "1": {"name": "น้องฟ้า", "desc": "SuperSmartSave 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
+    "2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพ", "voice": {"name": "th-TH-Standard-B", "pitch": -1.0, "rate": 1.0}},
+    "3": {"name": "คุณป้ามาลี", "desc": "Wealth 888", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดก", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
+    "4": {"name": "แม่แอน", "desc": "ยาก: ปฏิเสธหนักมาก", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ห่วงเรื่องค่าใช้จ่ายลูก ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
+    "5": {"name": "คุณอัครเดช", "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Standard-B", "pitch": -0.5, "rate": 1.1}}
 }
 
 def get_audio_base64(text, voice_config):
-    if not TTS_API_KEY: return None
-    # ... (โค้ดล้างข้อความเดิมของคุณ) ...
+    if not TTS_API_KEY: 
+        return None
     
-    # เปลี่ยนเป็น v1beta1 เพื่อความชัวร์ในการรองรับทุกเสียง
+    # --- จุดที่เคยผิด: ใส่โค้ดล้างข้อความกลับเข้าไปให้แล้วครับ ---
+    clean_text = re.sub(r'^.*?:', '', text)
+    clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
+    if not clean_text: return None
+    
     url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
     
     payload = {
         "input": {"text": clean_text},
         "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
-        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
+        "audioConfig": {
+            "audioEncoding": "MP3", 
+            "pitch": voice_config["pitch"], 
+            "speakingRate": voice_config["rate"]
+        }
     }
     try:
-        res = requests.post(url, json=payload)
-        return res.json().get("audioContent")
-    except: return None
+        res = requests.post(url, json=payload, timeout=10)
+        res_json = res.json()
+        return res_json.get("audioContent")
+    except: 
+        return None
 
 # --- [ส่วนที่ 3: UI และ JavaScript] ---
 HTML_TEMPLATE = """
@@ -52,7 +65,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Mastery Simulator</title>
+    <title>AI Sales Simulator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --gold: #b45309; }
@@ -191,14 +204,11 @@ HTML_TEMPLATE = """
             const data = await res.json();
             alert("📊 ผลการประเมิน:\\n" + data.evaluation);
             
-            // ตรวจสอบว่าปิดการขายได้จริงไหม (is_closed)
             if (data.is_closed && activeLvl === "5") {
                 document.getElementById('pdf-staff').innerText = document.getElementById('staff-name').value;
                 var el = document.getElementById('cert-area');
                 el.style.display = 'block';
                 html2pdf().from(el).save().then(function(){ el.style.display = 'none'; });
-            } else if (activeLvl === "5") {
-                alert("❌ ยังปิดการขายไม่ได้ จึงยังไม่ได้รับใบประกาศนียบัตร กรุณาฝึกฝนเพิ่มเติมนะครับ");
             }
         }
     </script>
@@ -213,43 +223,32 @@ def home():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    data = request.json
-    lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
-    cust = CUSTOMERS[lvl]
-    
-    # ส่งประวัติทั้งหมดไปให้ AI อ่านเพื่อความจำที่แม่นยำ
-    context = "\\n".join(history)
-    
-    full_prompt = "System: " + cust['prompt'] + "\\nHistory:\\n" + context + "\\nUser: " + user_msg
-    response = model.generate_content(full_prompt)
-    reply_text = response.text
-    audio_data = get_audio_base64(reply_text, cust['voice'])
-    return jsonify({"reply": reply_text, "audio": audio_data})
+    try:
+        data = request.json
+        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
+        cust = CUSTOMERS[lvl]
+        context = "\\n".join(history[-10:]) # ป้องกัน Token ยาวเกินไป
+        
+        full_prompt = "System: " + cust['prompt'] + "\\nHistory:\\n" + context + "\\nUser: " + user_msg
+        response = model.generate_content(full_prompt)
+        reply_text = response.text
+        
+        audio_data = get_audio_base64(reply_text, cust['voice'])
+        return jsonify({"reply": reply_text, "audio": audio_data})
+    except Exception as e:
+        return jsonify({"reply": f"เกิดข้อผิดพลาด: {str(e)}", "audio": None}), 500
 
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
-    data = request.json
-    history = data.get('history', '')
-    lvl = data.get('lvl', '')
-    
-    # สั่งให้ AI ตรวจสอบว่า "ปิดการขายได้สำเร็จหรือไม่"
-    prompt = f"""ในฐานะโค้ชการขาย ประเมินบทสนทนานี้:
-    {history}
-    
-    เงื่อนไขพิเศษ:
-    1. ตรวจสอบว่าพนักงานแจ้งเลขใบอนุญาตและขออัดเสียงหรือไม่
-    2. สำคัญมาก: พนักงานสามารถ "ปิดการขาย" (ลูกค้าตอบตกลงทำประกันชัดเจน) ได้สำเร็จหรือไม่?
-    
-    ให้ตอบในรูปแบบ:
-    [สรุปการประเมิน]: ...
-    [ปิดการขาย]: (สำเร็จ/ไม่สำเร็จ)
-    """
-    evaluation = model.generate_content(prompt).text
-    
-    # เช็ก keyword ในคำตอบของ AI
-    is_closed = "สำเร็จ" in evaluation and "[ปิดการขาย]" in evaluation
-    
-    return jsonify({"evaluation": evaluation, "is_closed": is_closed})
+    try:
+        data = request.json
+        history = data.get('history', '')
+        prompt = f"ในฐานะโค้ชการขาย ประเมินบทสนทนานี้: {history} ... [ปิดการขาย]: (สำเร็จ/ไม่สำเร็จ)"
+        evaluation = model.generate_content(prompt).text
+        is_closed = "[ปิดการขาย]: สำเร็จ" in evaluation
+        return jsonify({"evaluation": evaluation, "is_closed": is_closed})
+    except:
+        return jsonify({"evaluation": "ไม่สามารถประเมินได้", "is_closed": False}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
