@@ -6,61 +6,90 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- [ส่วนที่ 1: ตั้งค่า API และ AI] ---
-# ใช้คีย์จาก Environment Variables ที่อาร์มตั้งใน Vercel
+# --- [ส่วนที่ 1: ตั้งค่า API] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+model = genai.GenerativeModel(model_name="gemini-2.5-flash") # ใช้ Gemini 2.5 Flash ตามที่ตั้งค่าไว้
 
-# --- [ส่วนที่ 2: กฎของลูกค้าและรายชื่อลูกค้า] ---
+# --- [ส่วนที่ 2: ลอจิก Cold Call และ รายชื่อลูกค้า] ---
 COLD_CALL_RULES = """
-[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" เท่านั้น ห้ามสวมบทบาทเป็นพนักงานเด็ดขาด
-1. [การจดจำ]: ห้ามถามชื่อพนักงานหรือเลขใบอนุญาตซ้ำหากเขาแจ้งไปแล้ว
-2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' (ห้ามเรียกชื่อตัวเอง)
-3. [บุคลิก]: เริ่มจากระแวงและปฏิเสธ 4-5 รอบ จนกว่าพนักงานจะทำตามกฎ คปภ. ถูกต้อง
+[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" เท่านั้น ห้ามตอบหรือสวมบทบาทเป็นพนักงานเด็ดขาด
+1. [การจดจำ]: อ่าน History ให้ละเอียด ห้ามถามชื่อพนักงานหรือเลขใบอนุญาตซ้ำหากเคยแจ้งแล้ว
+2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' 
+3. [บุคลิก]: เริ่มจากไม่ไว้วางใจ ปฏิเสธการขายในช่วงแรก 4-5 รอบ จนกว่าพนักงานจะพูดถูกต้องตามกฎ คปภ.
 """
 
+# ปรับโครงสร้างใหม่ให้ Voice เก็บค่า gender ไว้ข้างในเพื่อไม่ให้ Frontend พัง
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า", 
         "desc": "ออม 20/9", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.5, "rate": 1.05} # เสียงผู้หญิง (ใสๆ วัยรุ่น)
+        "voice": {"name": "th-TH-Neural2-A", "gender": "FEMALE", "pitch": 0.5, "rate": 1.05}
     },
     "2": {
         "name": "คุณวิรัช", 
         "desc": "สุขภาพ", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' เน้นถามเรื่องความคุ้มครองสุขภาพ", 
-        "voice": {"name": "th-TH-Neural2-B", "pitch": -1.0, "rate": 1.0} # เสียงผู้ชาย (สุขุม มีอายุ)
+        "voice": {"name": "th-TH-Neural2-B", "gender": "MALE", "pitch": -1.0, "rate": 1.0}
     },
     "3": {
         "name": "คุณป้ามาลี", 
         "desc": "มรดก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", 
-        "voice": {"name": "th-TH-Neural2-C", "pitch": -2.0, "rate": 0.9} # เสียงผู้หญิง (ผู้ใหญ่ ใจดี)
+        "voice": {"name": "th-TH-Neural2-C", "gender": "FEMALE", "pitch": -2.0, "rate": 0.9}
     },
     "4": {
         "name": "แม่แอน", 
         "desc": "ปฏิเสธหนัก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธเรื่องประกันตลอด", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": -0.5, "rate": 1.1} # เสียงผู้หญิง (กระฉับกระเฉง/รำคาญ)
+        "voice": {"name": "th-TH-Neural2-A", "gender": "FEMALE", "pitch": 0.0, "rate": 1.0}
     },
     "5": {
         "name": "คุณอัครเดช", 
         "desc": "นักธุรกิจ", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและดุ", 
-        "voice": {"name": "th-TH-Neural2-B", "pitch": -2.5, "rate": 1.05} # เสียงผู้ชาย (เข้ม ดุ ดัน)
+        "voice": {"name": "th-TH-Neural2-B", "gender": "MALE", "pitch": -2.5, "rate": 1.05}
     }
 }
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
-    # ล้างข้อความส่วนเกินเหมือนเดิม
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
     if not clean_text: return None
+    
+    url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
+    
+    # เพิ่ม ssmlGender เข้าไปใน Payload เพื่อแก้ปัญหาเสียงไม่ยอมพูด
+    payload = {
+        "input": {"text": clean_text},
+        "voice": {
+            "languageCode": "th-TH", 
+            "name": voice_config.get("name"),
+            "ssmlGender": voice_config.get("gender", "FEMALE")
+        },
+        "audioConfig": {
+            "audioEncoding": "MP3", 
+            "pitch": voice_config.get("pitch", 0.0), 
+            "speakingRate": voice_config.get("rate", 1.0)
+        }
+    }
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        res_json = res.json()
+        if "audioContent" in res_json:
+            return res_json["audioContent"]
+        else:
+            print(f"TTS API Error: {res_json}") # ช่วย Debug ดูว่าทำไมเสียงไม่มา
+            return None
+    except Exception as e: 
+        print(f"TTS Request Error: {e}")
+        return None
+
+# --- [ส่วนที่เหลือของโค้ด HTML และ Route คงเดิมตามที่คุณอาร์มเขียนไว้] ---
+# ... (ก๊อปปี้ส่วน HTML_TEMPLATE และ Route /api/chat จากไฟล์เดิมมาต่อได้เลยครับ)
     
     url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
     
