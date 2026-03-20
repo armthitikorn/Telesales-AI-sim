@@ -25,19 +25,19 @@ CUSTOMERS = {
         "name": "น้องฟ้า", 
         "desc": "SuperSmartSave 20/9", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี คุ้มครอง 20 ปี", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.0, "rate": 1.0} # เปลี่ยนเป็น Neural2-A เพื่อความสมจริง
+        "voice": {"name": "th-TH-Studio-A", "pitch": 0.0, "rate": 1.0} # เปลี่ยนเป็น Neural2-A เพื่อความสมจริง
     },
     "2": {
         "name": "คุณวิรัช", 
         "desc": "Double Sure Health", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพเหมาจ่าย", 
-        "voice": {"name": "th-TH-Standard-B", "pitch": -1.0, "rate": 1.0} # ใช้เสียงผู้ชายแท้ และลด Pitch นิดเดียวพอ
+        "voice": {"name": "th-TH-Studio-C", "pitch": -1.0, "rate": 1.0} # ใช้เสียงผู้ชายแท้ และลด Pitch นิดเดียวพอ
     },
     "3": {
         "name": "คุณป้ามาลี", 
         "desc": "Wealth 888", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดกให้หลาน", 
-        "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}
+        "voice": {"name": "th-TH-Studio-A", "pitch": -1.5, "rate": 0.9}
     },
     "4": {
         "name": "แม่แอน", 
@@ -49,7 +49,7 @@ CUSTOMERS = {
         "name": "คุณอัครเดช", 
         "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", 
-        "voice": {"name": "th-TH-Standard-B", "pitch": 0.0, "rate": 1.05} 
+        "voice": {"name": "th-TH-Studio-C", "pitch": 0.0, "rate": 1.05} 
     }
 }
 def get_audio_base64(text, voice_config):
