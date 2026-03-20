@@ -22,7 +22,7 @@ COLD_CALL_RULES = """
 
 CUSTOMERS = {
     "1": {"name": "น้องฟ้า", "desc": "SuperSmartSave 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี คุ้มครอง 20 ปี", "voice": {"name": "th-TH-Standard-A", "pitch": 2.0, "rate": 1.0}},
-    "2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพเหมาจ่าย", "voice": {"name": "th-TH-Neural2-C", "pitch": -1.0, "rate": 1.0}},
+"2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Standard-B", "pitch": 0.0, "rate": 1.0} # Standard-B คือผู้ชายชัวร์ครับ},
     "3": {"name": "คุณป้ามาลี", "desc": "Wealth 888", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดกให้หลาน", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
     "4": {"name": "แม่แอน", "desc": "ยาก: ปฏิเสธหนักมาก", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธหนักและห่วงเรื่องค่าใช้จ่ายลูก ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 0.5, "rate": 1.0}},
     "5": {"name": "คุณอัครเดช", "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Neural2-C", "pitch": 0.0, "rate": 1.0}}
