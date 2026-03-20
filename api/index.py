@@ -20,8 +20,8 @@ COLD_CALL_RULES = """
 1. [การจดจำ]: อ่าน History ให้ละเอียด ห้ามถามชื่อพนักงานหรือเลขใบอนุญาตซ้ำหากเคยแจ้งแล้ว
 2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' 
 3. [บุคลิก]: เริ่มจากไม่ไว้วางใจ ปฏิเสธการขายในช่วงแรก 4-5 รอบ จนกว่าพนักงานจะพูดถูกต้องตามกฎ คปภ.
-4. [กฎการแนะนำตัว]: หากพนักงาน "ยังไม่ได้แนะนำตัวครบถ้วน" (ชื่อ-นามสกุล, ชื่อบริษัท, เลขใบอนุญาต) **ห้าม** ยอมให้พนักงานอธิบายรายละเอียดลึกๆ ของแบบประกัน (เช่น เงื่อนไข, ข้อยกเว้น, หรือค่าเบี้ยประกัน) เด็ดขาด ให้ตัดบทหรือท้วงถามทันที เช่น "เดี๋ยวนะครับ/คะ คุณเป็นใคร โทรมาจากไหน?"
-5. [การอนุโลมจุดขาย / Hook]: หากพนักงานยังไม่แนะนำตัว แต่เปิดบทสนทนาด้วย "จุดขายเพื่อดึงดูดความสนใจ" (เช่น วงเงินคุ้มครองสูง, ผลตอบแทนสูงสุด x%, เงินคืนทุกปี) ให้อนุโลมรับฟังและแสดงความสนใจได้เล็กน้อย แต่ต้องวกกลับไปถามตัวตนพนักงานเสมอ เช่น "อืม ก็น่าสนใจนะ ว่าแต่คุณโทรมาจากบริษัทอะไรล่ะ?" ก่อนที่จะยอมให้ลงรายละเอียดขั้นต่อไป
+4. [กฎการแนะนำตัว]: หากพนักงาน "ยังไม่ได้แนะนำตัวครบถ้วน" (ชื่อ-นามสกุล, ชื่อบริษัท, เลขใบอนุญาต) ห้ามยอมให้พนักงานอธิบายรายละเอียดลึกๆ ของแบบประกัน (เช่น เงื่อนไข, ข้อยกเว้น, หรือค่าเบี้ยประกัน) เด็ดขาด ให้ตัดบทหรือท้วงถามทันที
+5. [การอนุโลมจุดขาย / Hook]: หากพนักงานยังไม่แนะนำตัว แต่เปิดบทสนทนาด้วย "จุดขายเพื่อดึงดูดความสนใจ" (เช่น วงเงินคุ้มครองสูง, ผลตอบแทนสูงสุด x%, เงินคืนทุกปี) ให้อนุโลมรับฟังและแสดงความสนใจได้เล็กน้อย แต่ต้องวกกลับไปถามตัวตนพนักงานเสมอ
 """
 
 CUSTOMERS = {
@@ -29,7 +29,7 @@ CUSTOMERS = {
         "name": "น้องฟ้า", 
         "desc": "ออม 20/9", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", 
-        "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"} # เปลี่ยนเป็นสาว Chirp
+        "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"} 
     },
     "2": {
         "name": "คุณวิรัช", 
@@ -41,19 +41,19 @@ CUSTOMERS = {
         "name": "คุณป้ามาลี", 
         "desc": "มรดก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", 
-        "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"} # ลองใช้อีกเสียงให้ป้ามาลี
+        "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"} 
     },
     "4": {
         "name": "แม่แอน", 
         "desc": "ปฏิเสธหนัก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธเรื่องประกันตลอด", 
-        "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"} # เสียงผู้หญิงอีกคาแรคเตอร์
+        "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"} 
     },
     "5": {
         "name": "คุณอัครเดช", 
         "desc": "นักธุรกิจ", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและดุ", 
-        "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"} # ลองเปลี่ยนให้ทุ้มขึ้น
+        "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"} 
     }
 }
 
@@ -67,7 +67,11 @@ def get_audio_base64(text, voice_config):
     voice_name = voice_config["name"]
     payload = {
         "input": {"text": clean_text},
-        "voice": {"languageCode": "th-TH", "name": voice_name},
+        "voice": {
+            "languageCode": "th-TH", 
+            "name": voice_name,
+            "ssmlGender": voice_config.get("gender", "FEMALE")
+        },
         "audioConfig": {"audioEncoding": "MP3"}
     }
     if "Chirp3" not in voice_name:
@@ -105,7 +109,6 @@ HTML_TEMPLATE = """
         .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; }
         .btn-mic:disabled { background: var(--gray) !important; opacity: 0.6; }
         
-        /* สไตล์สำหรับ Report Card */
         #eval-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; overflow-y:auto; }
         .eval-content { background:white; max-width:600px; margin:30px auto; padding:25px; border-radius:15px; }
         .score-box { text-align:center; padding:20px; border-radius:10px; margin-bottom:20px; color:white; font-size:24px; font-weight:bold; }
@@ -136,25 +139,31 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="eval-modal">
-        <div class="eval-content">
-            <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบสคริปต์</h2>
-            <div id="score-banner" class="score-box pass">รอผลประเมิน...</div>
-            
-            <div class="feedback-box">
-                <b>💪 จุดแข็ง:</b> <span id="fb-strength"></span>
+        <div class="eval-content" id="eval-report-container">
+            <div id="eval-printable-area">
+                <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบสคริปต์</h2>
+                <p style="text-align:center; font-weight:bold;">พนักงาน: <span id="report-staff-name"></span> | ลูกค้า: <span id="report-customer-name"></span></p>
+                <div id="score-banner" class="score-box pass">รอผลประเมิน...</div>
+                
+                <div class="feedback-box">
+                    <b>💪 จุดแข็ง:</b> <span id="fb-strength"></span>
+                </div>
+                <div class="feedback-box" style="border-left-color: var(--red);">
+                    <b>⚠️ จุดอ่อน:</b> <span id="fb-weakness"></span>
+                </div>
+                <div class="feedback-box" style="border-left-color: var(--gold);">
+                    <b>📈 จุดที่ต้องพัฒนา:</b> <span id="fb-improve"></span>
+                </div>
+                
+                <h3 style="margin-top:20px;">รายละเอียดคะแนน (17 หัวข้อ)</h3>
+                <div id="eval-details"></div>
             </div>
-            <div class="feedback-box" style="border-left-color: var(--red);">
-                <b>⚠️ จุดอ่อน:</b> <span id="fb-weakness"></span>
-            </div>
-            <div class="feedback-box" style="border-left-color: var(--gold);">
-                <b>📈 จุดที่ต้องพัฒนา:</b> <span id="fb-improve"></span>
-            </div>
             
-            <h3 style="margin-top:20px;">รายละเอียดคะแนน (17 หัวข้อ)</h3>
-            <div id="eval-details"></div>
-            
-            <button onclick="closeEvaluation()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:20px; font-size:16px;">ปิดหน้าต่าง</button>
-            <button id="cert-btn" onclick="generateCert()" style="display:none; width:100%; padding:15px; background:var(--gold); color:white; border:none; border-radius:8px; margin-top:10px; font-size:16px;">🎓 รับใบประกาศนียบัตร</button>
+            <div data-html2canvas-ignore="true">
+                <button onclick="downloadEvalPDF()" style="width:100%; padding:15px; background:var(--green); color:white; border:none; border-radius:8px; margin-top:20px; font-size:16px;">📥 ดาวน์โหลดผลประเมิน (PDF)</button>
+                <button onclick="closeEvaluation()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:10px; font-size:16px;">ปิดหน้าต่าง</button>
+                <button id="cert-btn" onclick="generateCert()" style="display:none; width:100%; padding:15px; background:var(--gold); color:white; border:none; border-radius:8px; margin-top:10px; font-size:16px;">🎓 รับใบประกาศนียบัตร</button>
+            </div>
         </div>
     </div>
 
@@ -175,7 +184,6 @@ HTML_TEMPLATE = """
         recognition.lang = 'th-TH';
         var player = new Audio();
 
-        // หัวข้อการประเมิน 17 ข้อ สำหรับโชว์ในหน้าเว็บ
         const criteriaList = [
             "4. แจ้งชื่อ-นามสกุล พนักงาน",
             "5. แจ้งเลขที่ใบอนุญาต และรหัสพนักงาน",
@@ -282,7 +290,9 @@ HTML_TEMPLATE = """
                 });
                 const data = await res.json();
                 
-                // อัปเดต UI หน้าประเมินผล
+                document.getElementById('report-staff-name').innerText = document.getElementById('staff-name').value;
+                document.getElementById('report-customer-name').innerText = customers[activeLvl].name;
+
                 const banner = document.getElementById('score-banner');
                 const resultText = data.passed ? "ผ่านเกณฑ์" : "ไม่ผ่านเกณฑ์";
                 banner.innerText = "คะแนนรวม: " + data.total + "/85 (" + resultText + ")";
@@ -292,7 +302,6 @@ HTML_TEMPLATE = """
                 document.getElementById('fb-weakness').innerText = data.weaknesses;
                 document.getElementById('fb-improve').innerText = data.improvements;
                 
-                // สร้างรายการคะแนน 17 ข้อ
                 let detailsHTML = "";
                 for(let i=0; i<17; i++) {
                     let score = data.scores[i] || 0;
@@ -301,7 +310,6 @@ HTML_TEMPLATE = """
                 }
                 document.getElementById('eval-details').innerHTML = detailsHTML;
                 
-                // โชว์ปุ่มรับใบประกาศ ถ้าผ่านและอยู่ด่านที่ 5
                 if(data.passed && activeLvl === "5") {
                     document.getElementById('cert-btn').style.display = "block";
                 }
@@ -317,6 +325,20 @@ HTML_TEMPLATE = """
         
         function closeEvaluation() {
             document.getElementById('eval-modal').style.display = "none";
+        }
+
+        // ฟังก์ชันดาวน์โหลดผลประเมินเป็น PDF
+        function downloadEvalPDF() {
+            var element = document.getElementById('eval-printable-area');
+            var staffName = document.getElementById('staff-name').value || 'Staff';
+            var opt = {
+                margin:       0.5,
+                filename:     'QC_Evaluation_' + staffName + '.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
         }
         
         function generateCert() {
@@ -341,10 +363,12 @@ def chat():
         data = request.json
         lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
-        context = "\n".join(history[-8:]) 
+        
+        # แก้ปัญหา AI ความจำสั้น โดยการส่งประวัติ "ทั้งหมด" แทนการตัดแค่ 8 บรรทัด
+        context = "\n".join(history) 
         
         full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
-ประวัติการคุย:
+ประวัติการคุยตั้งแต่ต้น:
 {context}
 พนักงานขายพูดว่า: "{user_msg}"
 จงตอบกลับในฐานะลูกค้าเท่านั้น:"""
@@ -361,7 +385,6 @@ def evaluate():
     try:
         history = request.json.get('history', '')
         
-        # Prompt บังคับให้ AI ประเมินตาม QC Matrix และตอบกลับเป็น JSON
         eval_prompt = f"""
         ในฐานะผู้ตรวจสอบคุณภาพ (QA) ของบริษัทประกันภัย จงประเมินบทสนทนาการขายทางโทรศัพท์ต่อไปนี้
         ประวัติการสนทนา:
@@ -406,7 +429,6 @@ def evaluate():
         response = model.generate_content(eval_prompt)
         result_text = response.text.strip()
         
-        # ตัด Markdown Code Block ออกเผื่อ AI เผลอใส่มา
         if result_text.startswith("```json"):
             result_text = result_text[7:-3].strip()
         elif result_text.startswith("```"):
@@ -414,7 +436,6 @@ def evaluate():
             
         eval_data = json.loads(result_text)
         
-        # คำนวณคะแนนรวม และเช็คผ่านเกณฑ์ (>= 50)
         scores_array = eval_data.get("scores", [0]*17)
         total_score = sum(scores_array)
         is_passed = total_score >= 50
@@ -426,7 +447,6 @@ def evaluate():
         
     except Exception as e:
         print(f"Eval Error: {e}")
-        # กรณีเกิด Error ส่งค่า Default กลับไปให้ UI ไม่พัง
         return jsonify({
             "scores": [0]*17,
             "total": 0,
