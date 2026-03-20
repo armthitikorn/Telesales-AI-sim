@@ -57,24 +57,41 @@ CUSTOMERS = {
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
-    
-    # ล้างข้อความเพื่อให้ AI พูดลื่นไหลขึ้น
+    # ล้างข้อความส่วนเกินเหมือนเดิม
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
     if not clean_text: return None
     
-    # ใช้ v1beta1 เพื่อให้รองรับเสียงผู้ชายรหัส -C
     url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
     
+    # แก้ไข Payload ตรงนี้ครับ
     payload = {
         "input": {"text": clean_text},
-        "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
-        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
+        "voice": {
+            "languageCode": "th-TH", 
+            "name": voice_config["name"],
+            "ssmlGender": voice_config["gender"] # เพิ่มบรรทัดนี้เข้าไปครับ
+        },
+        "audioConfig": {
+            "audioEncoding": "MP3", 
+            "pitch": voice_config["pitch"], 
+            "speakingRate": voice_config["rate"]
+        }
     }
+    
     try:
         res = requests.post(url, json=payload, timeout=10)
-        return res.json().get("audioContent")
-    except: return None
+        result_json = res.json()
+        
+        # เพิ่มการดักจับ Error เพื่อดูว่าทำไมเสียงถึงไม่มา
+        if "audioContent" in result_json:
+            return result_json["audioContent"]
+        else:
+            print(f"TTS Error: {result_json}") # จะแสดง Error ใน Console ถ้าเสียงไม่ยอมพูด
+            return None
+    except Exception as e: 
+        print(f"Request Error: {e}")
+        return None
 
 # --- [ส่วนที่ 3: หน้าจอ HTML และ JavaScript] ---
 HTML_TEMPLATE = """
