@@ -21,52 +21,41 @@ COLD_CALL_RULES = """
 """
 
 CUSTOMERS = {
-    "1": {
-        "name": "น้องฟ้า", 
-        "desc": "SuperSmartSave 20/9", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี คุ้มครอง 20 ปี", 
-        "voice": {"name": "th-TH-Studio-A", "pitch": 0.0, "rate": 1.0}
-    },
-    "2": {
-        "name": "คุณวิรัช", 
-        "desc": "Double Sure Health", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพเหมาจ่าย", 
-        "voice": {"name": "th-TH-Studio-C", "pitch": 0.0, "rate": 1.0}
-    },
-    "3": {
-        "name": "คุณป้ามาลี", 
-        "desc": "Wealth 888", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดกให้หลาน", 
-        "voice": {"name": "th-TH-Studio-A", "pitch": -1.0, "rate": 0.95} # ปรับ Pitch ลงนิดเดียวให้ดูเป็นผู้ใหญ่ขึ้น
-    },
-    "4": {
-        "name": "แม่แอน", 
-        "desc": "ยาก: ปฏิเสธหนักมาก", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธหนักและห่วงเรื่องค่าใช้จ่ายลูก ลงท้าย 'ค่ะ'", 
-        "voice": {"name": "th-TH-Studio-A", "pitch": 0.0, "rate": 1.0}
-    },
-    "5": {
-        "name": "คุณอัครเดช", 
-        "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", 
-        "voice": {"name": "th-TH-Studio-C", "pitch": -0.5, "rate": 1.05}
-    }
+    "1": {"name": "น้องฟ้า", "desc": "SuperSmartSave 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ' ถามเรื่องออม 9 ปี", "voice": {"name": "th-TH-Studio-A", "pitch": 0.0, "rate": 1.0}},
+    "2": {"name": "คุณวิรัช", "desc": "Double Sure Health", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพ", "voice": {"name": "th-TH-Studio-C", "pitch": 0.0, "rate": 1.0}},
+    "3": {"name": "คุณป้ามาลี", "desc": "Wealth 888", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ' ถามเรื่องมรดก", "voice": {"name": "th-TH-Studio-A", "pitch": -1.5, "rate": 0.95}},
+    "4": {"name": "แม่แอน", "desc": "ปฏิเสธหนักมาก", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ห่วงเรื่องค่าใช้จ่าย", "voice": {"name": "th-TH-Studio-A", "pitch": 0.0, "rate": 1.0}},
+    "5": {"name": "คุณอัครเดช", "desc": "นักธุรกิจใหญ่", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อย", "voice": {"name": "th-TH-Studio-C", "pitch": -0.5, "rate": 1.05}}
 }
 def get_audio_base64(text, voice_config):
-    if not TTS_API_KEY: return None
+    if not TTS_API_KEY: 
+        print("❌ Error: ไม่พบ TTS_API_KEY ใน Environment")
+        return None
+    
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
     if not clean_text: return None
-    url = "https://texttospeech.googleapis.com/v1/text:synthesize?key=" + TTS_API_KEY
+    
+    # ลองเปลี่ยนเป็น v1beta1 สำหรับเสียง Studio
+    url = "https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=" + TTS_API_KEY
     payload = {
         "input": {"text": clean_text},
         "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
         "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
     }
+    
     try:
         res = requests.post(url, json=payload)
-        return res.json().get("audioContent")
-    except: return None
+        response_json = res.json()
+        
+        if "error" in response_json:
+            print(f"❌ Google TTS Error: {response_json['error']['message']}")
+            return None
+            
+        return response_json.get("audioContent")
+    except Exception as e:
+        print(f"❌ Connection Error: {e}")
+        return None
 
 # --- [ส่วนที่ 3: UI และ JavaScript] ---
 HTML_TEMPLATE = """
