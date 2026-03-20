@@ -10,7 +10,6 @@ app = Flask(__name__)
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 genai.configure(api_key=GENAI_API_KEY)
-# บังคับใช้ Gemini 2.5 Flash ตามคำขอของอาร์ม
 model = genai.GenerativeModel(model_name="gemini-2.5-flash")
 
 # --- [ส่วนที่ 2: ลอจิก Cold Call และ รายชื่อลูกค้า] ---
@@ -31,58 +30,22 @@ CUSTOMERS = {
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
-    
-    # ล้างข้อความ (ตัดชื่อผู้พูดออกเพื่อให้เสียงลื่นไหล)
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).strip()
     if not clean_text: return None
     
-    # อัปเกรดเป็น v1beta1 เพื่อรองรับเสียง Neural2-C (เสียงผู้ชาย)
     url = f"https://texttospeech.googleapis.com/v1beta1/text:synthesize?key={TTS_API_KEY}"
-    
     payload = {
         "input": {"text": clean_text},
         "voice": {"languageCode": "th-TH", "name": voice_config["name"]},
-        "audioConfig": {
-            "audioEncoding": "MP3", 
-            "pitch": voice_config["pitch"], 
-            "speakingRate": voice_config["rate"]
-        }
+        "audioConfig": {"audioEncoding": "MP3", "pitch": voice_config["pitch"], "speakingRate": voice_config["rate"]}
     }
     try:
         res = requests.post(url, json=payload, timeout=10)
         return res.json().get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: UI และ JavaScript (ใช้ตัวเดิมของคุณอาร์มได้เลย)] ---
-# ... (ก๊อปปี้ส่วน HTML_TEMPLATE จากไฟล์เดิมมาวางตรงนี้ได้เลยครับ) ...
-
-# --- [ส่วนที่ 4: API Chat - แก้ไขโครงสร้าง Prompt เพื่อล็อกบทบาทลูกค้า] ---
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    try:
-        data = request.json
-        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
-        cust = CUSTOMERS[lvl]
-        
-        # ปรับโครงสร้าง Prompt ให้ชัดเจนขึ้น
-        context = "\n".join(history[-8:]) # เอา 8 ประโยคล่าสุดพอ เพื่อความจำ
-        
-        full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
-ประวัติการคุย:
-{context}
-พนักงานขายพูดว่า: "{user_msg}"
-จงตอบกลับในฐานะลูกค้าเท่านั้น:"""
-
-        response = model.generate_content(full_prompt)
-        reply_text = response.text
-        
-        # ดึงเสียง
-        audio_data = get_audio_base64(reply_text, cust['voice'])
-        
-        return jsonify({"reply": reply_text, "audio": audio_data})
-    except Exception as e:
-        return jsonify({"reply": f"เกิดข้อผิดพลาด: {str(e)}", "audio": None}), 500
+# --- [ส่วนที่ 3: UI และ HTML] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
@@ -155,7 +118,7 @@ HTML_TEMPLATE = """
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
+            if(!document.getElementById('staff-name').value) { alert(\"ระบุชื่อก่อนครับ\"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
@@ -164,7 +127,7 @@ HTML_TEMPLATE = """
         }
 
         function unlockAudio() {
-            var s = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+            var s = new Audio(\"data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=\");
             s.play().catch(function(){});
         }
 
@@ -178,16 +141,16 @@ HTML_TEMPLATE = """
             unlockAudio();
             player.pause();
             recognition.start();
-            document.getElementById('mic-btn').style.opacity = "0.5";
+            document.getElementById('mic-btn').style.opacity = \"0.5\";
         }
 
         async function sendToAI(t) {
             isThinking = true;
             document.getElementById('mic-btn').disabled = true;
-            document.getElementById('status').innerText = "⌛ ลูกค้ากำลังคิด...";
+            document.getElementById('status').innerText = \"⌛ ลูกค้ากำลังคิด...\";
             var box = document.getElementById('chat-box');
-            box.innerHTML += '<div class="msg staff"><b>คุณ:</b> ' + t + '</div>';
-            history_log.push("พนักงาน: " + t);
+            box.innerHTML += '<div class=\"msg staff\"><b>คุณ:</b> ' + t + '</div>';
+            history_log.push(\"พนักงาน: \" + t);
             box.scrollTop = box.scrollHeight;
 
             try {
@@ -198,12 +161,12 @@ HTML_TEMPLATE = """
                 });
                 const data = await res.json();
                 var cleanReply = data.reply.replace(/^.*?:/g, '').trim();
-                box.innerHTML += '<div class="msg customer"><b>' + customers[activeLvl].name + ':</b> ' + cleanReply + '</div>';
-                history_log.push(customers[activeLvl].name + ": " + cleanReply);
+                box.innerHTML += '<div class=\"msg customer\"><b>' + customers[activeLvl].name + ':</b> ' + cleanReply + '</div>';
+                history_log.push(customers[activeLvl].name + \": \" + cleanReply);
                 box.scrollTop = box.scrollHeight;
 
                 if (data.audio) {
-                    player.src = "data:audio/mp3;base64," + data.audio;
+                    player.src = \"data:audio/mp3;base64,\" + data.audio;
                     await player.play();
                     player.onended = function() { resetUI(); };
                 } else { resetUI(); }
@@ -213,29 +176,26 @@ HTML_TEMPLATE = """
         function resetUI() {
             isThinking = false;
             document.getElementById('mic-btn').disabled = false;
-            document.getElementById('mic-btn').style.opacity = "1";
-            document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
+            document.getElementById('mic-btn').style.opacity = \"1\";
+            document.getElementById('status').innerText = \"✅ พร้อมคุยต่อ\";
             document.getElementById('eval-btn').style.display = 'block';
         }
 
         async function showEvaluation() {
-            document.getElementById('status').innerText = "⌛ กำลังประเมินผล...";
+            document.getElementById('status').innerText = \"⌛ กำลังประเมินผล...\";
             const res = await fetch('/api/evaluate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({history: history_log.join("\\n"), lvl: activeLvl})
+                body: JSON.stringify({history: history_log.join(\"\\\\n\"), lvl: activeLvl})
             });
             const data = await res.json();
-            alert("📊 ผลการประเมิน:\\n" + data.evaluation);
+            alert(\"📊 ผลการประเมิน:\\\\n\" + data.evaluation);
             
-            // ตรวจสอบว่าปิดการขายได้จริงไหม (is_closed)
-            if (data.is_closed && activeLvl === "5") {
+            if (data.is_closed && activeLvl === \"5\") {
                 document.getElementById('pdf-staff').innerText = document.getElementById('staff-name').value;
                 var el = document.getElementById('cert-area');
                 el.style.display = 'block';
                 html2pdf().from(el).save().then(function(){ el.style.display = 'none'; });
-            } else if (activeLvl === "5") {
-                alert("❌ ยังปิดการขายไม่ได้ จึงยังไม่ได้รับใบประกาศนียบัตร กรุณาฝึกฝนเพิ่มเติมนะครับ");
             }
         }
     </script>
@@ -250,44 +210,37 @@ def home():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    data = request.json
-    lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
-    cust = CUSTOMERS[lvl]
-    
-    # ส่งประวัติทั้งหมดไปให้ AI อ่านเพื่อความจำที่แม่นยำ
-    context = "\\n".join(history)
-    
-    full_prompt = "System: " + cust['prompt'] + "\\nHistory:\\n" + context + "\\nUser: " + user_msg
-    response = model.generate_content(full_prompt)
-    reply_text = response.text
-    audio_data = get_audio_base64(reply_text, cust['voice'])
-    return jsonify({"reply": reply_text, "audio": audio_data})
+    try:
+        data = request.json
+        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
+        cust = CUSTOMERS[lvl]
+        context = "\n".join(history[-8:]) 
+        
+        full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
+ประวัติการคุย:
+{context}
+พนักงานขายพูดว่า: "{user_msg}"
+จงตอบกลับในฐานะลูกค้าเท่านั้น:"""
+
+        response = model.generate_content(full_prompt)
+        reply_text = response.text
+        audio_data = get_audio_base64(reply_text, cust['voice'])
+        return jsonify({"reply": reply_text, "audio": audio_data})
+    except Exception as e:
+        return jsonify({"reply": f"เกิดข้อผิดพลาด: {str(e)}", "audio": None}), 500
 
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
-    data = request.json
-    history = data.get('history', '')
-    lvl = data.get('lvl', '')
-    
-    # สั่งให้ AI ตรวจสอบว่า "ปิดการขายได้สำเร็จหรือไม่"
-    prompt = f"""ในฐานะโค้ชการขาย ประเมินบทสนทนานี้:
-    {history}
-    
-    เงื่อนไขพิเศษ:
-    1. ตรวจสอบว่าพนักงานแจ้งเลขใบอนุญาตและขออัดเสียงหรือไม่
-    2. สำคัญมาก: พนักงานสามารถ "ปิดการขาย" (ลูกค้าตอบตกลงทำประกันชัดเจน) ได้สำเร็จหรือไม่?
-    
-    ให้ตอบในรูปแบบ:
-    [สรุปการประเมิน]: ...
-    [ปิดการขาย]: (สำเร็จ/ไม่สำเร็จ)
-    """
-    evaluation = model.generate_content(prompt).text
-    
-    # เช็ก keyword ในคำตอบของ AI
-    is_closed = "สำเร็จ" in evaluation and "[ปิดการขาย]" in evaluation
-    
-    return jsonify({"evaluation": evaluation, "is_closed": is_closed})
+    try:
+        data = request.json
+        history = data.get('history', '')
+        lvl = data.get('lvl', '')
+        prompt = f"ในฐานะโค้ชการขาย ประเมินบทสนทนานี้: {history} ... ให้สรุป และบอกว่า [ปิดการขาย]: (สำเร็จ/ไม่สำเร็จ)"
+        evaluation = model.generate_content(prompt).text
+        is_closed = "สำเร็จ" in evaluation and "[ปิดการขาย]" in evaluation
+        return jsonify({"evaluation": evaluation, "is_closed": is_closed})
+    except:
+        return jsonify({"evaluation": "ไม่สามารถประเมินได้", "is_closed": False}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
-
