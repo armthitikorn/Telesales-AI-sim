@@ -31,7 +31,7 @@ CUSTOMERS = {
         "name": "คุณวิรัช", 
         "desc": "Double Sure Health", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' ถามเรื่องสุขภาพเหมาจ่าย", 
-        "voice": {"name": "th-TH-Neural2-C", "pitch": -1.0, "rate": 1.0} # ใช้เสียงผู้ชายแท้ และลด Pitch นิดเดียวพอ
+        "voice": {"name": "th-TH-Standard-B", "pitch": -1.0, "rate": 1.0} # ใช้เสียงผู้ชายแท้ และลด Pitch นิดเดียวพอ
     },
     "3": {
         "name": "คุณป้ามาลี", 
@@ -45,11 +45,11 @@ CUSTOMERS = {
         "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธหนักและห่วงเรื่องค่าใช้จ่ายลูก ลงท้าย 'ค่ะ'", 
         "voice": {"name": "th-TH-Neural2-A", "pitch": 0.5, "rate": 1.0}
     },
-    "5": {
+"5": {
         "name": "คุณอัครเดช", 
         "desc": "ยากมาก: นักธุรกิจ (ต้องปิดการขายถึงได้ใบเซอร์)", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่าสูงสุด ลงท้าย 'ครับ'", 
-        "voice": {"name": "th-TH-Wavenet-C", "pitch": 0.0, "rate": 1.1} # ใช้ Wavenet-C เพื่อความภูมิฐานและพูดเร็วขึ้นนิดหน่อย
+        "voice": {"name": "th-TH-Standard-B", "pitch": 0.0, "rate": 1.05} 
     }
 }
 def get_audio_base64(text, voice_config):
