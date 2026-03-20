@@ -23,11 +23,36 @@ COLD_CALL_RULES = """
 """
 
 CUSTOMERS = {
-    "1": {"name": "น้องฟ้า", "desc": "ออม 20/9", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
-    "2": {"name": "คุณวิรัช", "desc": "สุขภาพ", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Neural2-C", "pitch": 0.0, "rate": 1.0}},
-    "3": {"name": "คุณป้ามาลี", "desc": "มรดก", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", "voice": {"name": "th-TH-Standard-A", "pitch": -1.5, "rate": 0.9}},
-    "4": {"name": "แม่แอน", "desc": "ปฏิเสธหนัก", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธประกันตลอด", "voice": {"name": "th-TH-Standard-A", "pitch": 0.0, "rate": 1.0}},
-    "5": {"name": "คุณอัครเดช", "desc": "นักธุรกิจ (ยากมาก)", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและเน้นความคุ้มค่า", "voice": {"name": "th-TH-Studio-C", "pitch": 0.0, "rate": 1.0}}
+    "1": {
+        "name": "น้องฟ้า", 
+        "desc": "ออม 20/9", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", 
+        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.5, "rate": 1.05} # เสียงผู้หญิง (ใสๆ วัยรุ่น)
+    },
+    "2": {
+        "name": "คุณวิรัช", 
+        "desc": "สุขภาพ", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' เน้นถามเรื่องความคุ้มครองสุขภาพ", 
+        "voice": {"name": "th-TH-Neural2-B", "pitch": -1.0, "rate": 1.0} # เสียงผู้ชาย (สุขุม มีอายุ)
+    },
+    "3": {
+        "name": "คุณป้ามาลี", 
+        "desc": "มรดก", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", 
+        "voice": {"name": "th-TH-Neural2-C", "pitch": -2.0, "rate": 0.9} # เสียงผู้หญิง (ผู้ใหญ่ ใจดี)
+    },
+    "4": {
+        "name": "แม่แอน", 
+        "desc": "ปฏิเสธหนัก", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธเรื่องประกันตลอด", 
+        "voice": {"name": "th-TH-Neural2-A", "pitch": -0.5, "rate": 1.1} # เสียงผู้หญิง (กระฉับกระเฉง/รำคาญ)
+    },
+    "5": {
+        "name": "คุณอัครเดช", 
+        "desc": "นักธุรกิจ", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและดุ", 
+        "voice": {"name": "th-TH-Neural2-B", "pitch": -2.5, "rate": 1.05} # เสียงผู้ชาย (เข้ม ดุ ดัน)
+    }
 }
 
 def get_audio_base64(text, voice_config):
