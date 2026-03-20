@@ -29,31 +29,31 @@ CUSTOMERS = {
         "name": "น้องฟ้า", 
         "desc": "ออม 20/9", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": 0.5, "rate": 1.05}
+        "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"} # เปลี่ยนเป็นสาว Chirp
     },
     "2": {
         "name": "คุณวิรัช", 
         "desc": "สุขภาพ", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' เน้นถามเรื่องความคุ้มครองสุขภาพ", 
-        "voice": {"name": "th-TH-Chirp3-HD-Achird"}
+        "voice": {"name": "th-TH-Chirp3-HD-Achird", "gender": "MALE"}
     },
     "3": {
         "name": "คุณป้ามาลี", 
         "desc": "มรดก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", 
-        "voice": {"name": "th-TH-Neural2-C", "pitch": -1.5, "rate": 0.9}
+        "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"} # ลองใช้อีกเสียงให้ป้ามาลี
     },
     "4": {
         "name": "แม่แอน", 
         "desc": "ปฏิเสธหนัก", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธเรื่องประกันตลอด", 
-        "voice": {"name": "th-TH-Neural2-A", "pitch": -0.5, "rate": 1.1}
+        "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"} # เสียงผู้หญิงอีกคาแรคเตอร์
     },
     "5": {
         "name": "คุณอัครเดช", 
         "desc": "นักธุรกิจ", 
         "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและดุ", 
-        "voice": {"name": "th-TH-Chirp3-HD-Achird"}
+        "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"} # ลองเปลี่ยนให้ทุ้มขึ้น
     }
 }
 
