@@ -97,17 +97,20 @@ HTML_TEMPLATE = """
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --gold: #b45309; --green: #15803d; }
         body { font-family: sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
-        input { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ddd; font-size: 18px; margin-bottom: 20px; }
+        input[type="text"] { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
         .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
+        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
-        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
-        .controls { padding: 20px; text-align: center; background: white; border-top: 1px solid #ddd; }
-        .btn-mic { width: 90px; height: 90px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 40px; cursor: pointer; }
+        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; display: flex; flex-direction: column; gap: 5px; }
+        .controls { padding: 15px; text-align: center; background: white; border-top: 1px solid #ddd; }
+        .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; margin-bottom: 5px; }
         .btn-mic:disabled { background: var(--gray) !important; opacity: 0.6; }
+        .fallback-input-container { display: flex; gap: 8px; margin-top: 10px; justify-content: center; }
+        .fallback-input-container input { width: 75%; padding: 12px; font-size: 16px; margin: 0; }
+        .fallback-input-container button { padding: 12px 20px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
         
         #eval-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; overflow-y:auto; }
         .eval-content { background:white; max-width:600px; margin:30px auto; padding:25px; border-radius:15px; }
@@ -122,9 +125,12 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body>
+    <!-- แก้ไข 1: เพิ่มแท็ก Audio สำหรับ iOS -->
+    <audio id="audio-player" playsinline style="display:none;"></audio>
+
     <div id="lobby">
         <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
-        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน">
+        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="margin-bottom: 20px;">
         <div id="customer-list"></div>
     </div>
 
@@ -133,12 +139,20 @@ HTML_TEMPLATE = """
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <p id="status" style="margin-top:10px;">แตะไมค์เพื่อพูด</p>
-            <button id="eval-btn" style="display:none; width:100%; padding:15px; border-radius:30px; border:2px solid var(--blue); color:var(--blue); background:none; font-weight:bold;" onclick="showEvaluation()">🏁 ประเมินผล QC Matrix</button>
+            <p id="status" style="margin: 0; font-size: 14px; color: #64748b;">แตะไมค์เพื่อพูด</p>
+            
+            <!-- แก้ไข 5: ช่องพิมพ์สำรองเผื่อไมค์ใช้ไม่ได้ -->
+            <div class="fallback-input-container">
+                <input type="text" id="text-fallback" placeholder="หรือพิมพ์ข้อความที่นี่..." onkeypress="handleEnter(event)">
+                <button onclick="sendFallbackText()">ส่ง</button>
+            </div>
+
+            <button id="eval-btn" style="display:none; width:100%; padding:15px; border-radius:30px; border:2px solid var(--blue); color:var(--blue); background:none; font-weight:bold; margin-top: 15px;" onclick="showEvaluation()">🏁 ประเมินผล QC Matrix</button>
         </div>
     </div>
 
     <div id="eval-modal">
+        <!-- โค้ด Modal ของเดิม -->
         <div class="eval-content" id="eval-report-container">
             <div id="eval-printable-area">
                 <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบสคริปต์</h2>
@@ -179,28 +193,22 @@ HTML_TEMPLATE = """
         var activeLvl = "";
         var isThinking = false;
         var customers = {{ CUSTOMERS | tojson | safe }};
+        
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        var recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH';
-        var player = new Audio();
+        var recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        if(recognition) recognition.lang = 'th-TH';
+        
+        var audioPlayer = document.getElementById('audio-player');
 
         const criteriaList = [
-            "4. แจ้งชื่อ-นามสกุล พนักงาน",
-            "5. แจ้งเลขที่ใบอนุญาต และรหัสพนักงาน",
-            "6. แจ้งชื่อบริษัทต้นสังกัด",
-            "7. ถามความสะดวก และขออนุญาตบันทึกเทป",
-            "8. บทเปิดตัวมีการเชื่อมโยง/โน้มน้าว",
-            "9. นำเสนอผลิตภัณฑ์ อธิบายผลประโยชน์/เงื่อนไข/ข้อยกเว้น",
-            "10. แจ้งค่าเบี้ยประกัน",
-            "11. อธิบายมูลค่ากรมธรรม์/การเวนคืน",
-            "12. อธิบายการลดหย่อนภาษี",
-            "13. ตอบข้อโต้แย้งชัดเจน ตรงประเด็น โน้มน้าว",
-            "14. อธิบายวิธีการสมัครและชำระเบี้ย",
-            "15. ใช้ประโยคปิดการขายไม่น้อยกว่า 3 ครั้ง",
-            "16. ประโยคสคริปต์การขายโดยรวม",
-            "17. น้ำเสียงสร้างความประทับใจให้ลูกค้า",
-            "18. ควบคุมสถานการณ์ อารมณ์ และน้ำเสียงได้",
-            "19. ทักษะไหวพริบการรับฟัง ตอบคำถาม",
+            "4. แจ้งชื่อ-นามสกุล พนักงาน", "5. แจ้งเลขที่ใบอนุญาต และรหัสพนักงาน",
+            "6. แจ้งชื่อบริษัทต้นสังกัด", "7. ถามความสะดวก และขออนุญาตบันทึกเทป",
+            "8. บทเปิดตัวมีการเชื่อมโยง/โน้มน้าว", "9. นำเสนอผลิตภัณฑ์ อธิบายผลประโยชน์/เงื่อนไข/ข้อยกเว้น",
+            "10. แจ้งค่าเบี้ยประกัน", "11. อธิบายมูลค่ากรมธรรม์/การเวนคืน",
+            "12. อธิบายการลดหย่อนภาษี", "13. ตอบข้อโต้แย้งชัดเจน ตรงประเด็น โน้มน้าว",
+            "14. อธิบายวิธีการสมัครและชำระเบี้ย", "15. ใช้ประโยคปิดการขายไม่น้อยกว่า 3 ครั้ง",
+            "16. ประโยคสคริปต์การขายโดยรวม", "17. น้ำเสียงสร้างความประทับใจให้ลูกค้า",
+            "18. ควบคุมสถานการณ์ อารมณ์ และน้ำเสียงได้", "19. ทักษะไหวพริบการรับฟัง ตอบคำถาม",
             "20. พนักงานสามารถฝึกฝนและพัฒนาต่อได้"
         ];
 
@@ -224,32 +232,115 @@ HTML_TEMPLATE = """
             unlockAudio();
         }
 
+        // แก้ไข 2: ปลดล็อค Audio Context ด้วยไฟล์เสียงเงียบ
         function unlockAudio() {
-            var s = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-            s.play().catch(function(){});
+            audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+            var playPromise = audioPlayer.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(function(e) { console.log("Unlock audio blocked."); });
+            }
         }
 
-        recognition.onresult = function(e) {
-            var t = e.results[0][0].transcript;
-            if (t.length > 0 && !isThinking) { sendToAI(t); }
-        };
+        // แก้ไข 3: แปลง Base64 เป็น Blob URL
+        function b64toBlobUrl(b64Data, contentType='audio/mp3') {
+            try {
+                const byteCharacters = atob(b64Data);
+                const byteArrays = [];
+                for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                    const slice = byteCharacters.slice(offset, offset + 512);
+                    const byteNumbers = new Array(slice.length);
+                    for (let i = 0; i < slice.length; i++) {
+                        byteNumbers[i] = slice.charCodeAt(i);
+                    }
+                    byteArrays.push(new Uint8Array(byteNumbers));
+                }
+                return URL.createObjectURL(new Blob(byteArrays, {type: contentType}));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        if(recognition) {
+            recognition.onresult = function(e) {
+                var t = e.results[0][0].transcript;
+                if (t.length > 0 && !isThinking) { sendToAI(t); }
+            };
+
+            recognition.onerror = function(e) {
+                console.error("Speech Recognition Error:", e.error);
+                document.getElementById('status').innerText = "❌ ไมค์มีปัญหา (" + e.error + ") กรุณาพิมพ์แทน";
+                resetMicUI();
+            };
+
+            recognition.onend = function() {
+                if(!isThinking) resetMicUI();
+            };
+        }
 
         function toggleListen() {
             if (isThinking) return;
             unlockAudio();
-            player.pause();
-            recognition.start();
-            document.getElementById('mic-btn').style.opacity = "0.5";
+            
+            if(!recognition) {
+                alert("เบราว์เซอร์ของคุณไม่รองรับการพิมพ์ด้วยเสียง กรุณาใช้ช่องพิมพ์ข้อความครับ");
+                return;
+            }
+
+            try {
+                audioPlayer.pause();
+                recognition.start();
+                document.getElementById('mic-btn').style.opacity = "0.5";
+                document.getElementById('status').innerText = "กำลังฟัง... (พูดได้เลย)";
+            } catch(e) {
+                console.error("Mic start error", e);
+            }
+        }
+
+        function resetMicUI() {
+            document.getElementById('mic-btn').style.opacity = "1";
+            if(document.getElementById('status').innerText.includes("กำลังฟัง")) {
+                document.getElementById('status').innerText = "แตะไมค์เพื่อพูด หรือพิมพ์ข้อความ";
+            }
+        }
+
+        function handleEnter(e) {
+            if(e.key === 'Enter') sendFallbackText();
+        }
+
+        function sendFallbackText() {
+            var input = document.getElementById('text-fallback');
+            var t = input.value.trim();
+            if(t !== "" && !isThinking) {
+                input.value = "";
+                if(recognition) recognition.stop();
+                unlockAudio(); 
+                sendToAI(t);
+            }
+        }
+
+        // ฟังก์ชันวาดกล่องข้อความ
+        function appendMessage(role, name, text) {
+            var box = document.getElementById('chat-box');
+            var div = document.createElement('div');
+            if (role === 'staff') {
+                div.className = "msg staff";
+                div.innerHTML = "<b>" + name + ":</b> " + text;
+            } else {
+                div.className = "msg customer";
+                div.innerHTML = "<div><b>" + name + ":</b> " + text + "</div>";
+            }
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+            return div;
         }
 
         async function sendToAI(t) {
             isThinking = true;
             document.getElementById('mic-btn').disabled = true;
             document.getElementById('status').innerText = "⌛ ลูกค้ากำลังคิด...";
-            var box = document.getElementById('chat-box');
-            box.innerHTML += '<div class="msg staff"><b>คุณ:</b> ' + t + '</div>';
+            
+            appendMessage('staff', 'คุณ', t);
             history_log.push("พนักงาน: " + t);
-            box.scrollTop = box.scrollHeight;
 
             try {
                 const res = await fetch('/api/chat', {
@@ -259,23 +350,53 @@ HTML_TEMPLATE = """
                 });
                 const data = await res.json();
                 var cleanReply = data.reply.replace(/^.*?:/g, '').trim();
-                box.innerHTML += '<div class="msg customer"><b>' + customers[activeLvl].name + ':</b> ' + cleanReply + '</div>';
+                
+                var botMessageDiv = appendMessage('customer', customers[activeLvl].name, cleanReply);
                 history_log.push(customers[activeLvl].name + ": " + cleanReply);
-                box.scrollTop = box.scrollHeight;
 
                 if (data.audio) {
-                    player.src = "data:audio/mp3;base64," + data.audio;
-                    await player.play();
-                    player.onended = function() { resetUI(); };
+                    const blobUrl = b64toBlobUrl(data.audio);
+                    if (blobUrl) {
+                        audioPlayer.src = blobUrl;
+                        var playPromise = audioPlayer.play();
+                        
+                        if (playPromise !== undefined) {
+                            playPromise.then(_ => {
+                                audioPlayer.onended = function() { resetUI(); };
+                            }).catch(e => {
+                                console.error("Autoplay blocked by iOS:", e);
+                                document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (เสียงถูกระบบบล็อก)";
+                                
+                                // แก้ไข 4: เพิ่มปุ่มเล่นเสียงสำรองถ้า iOS บล็อก
+                                const playBtn = document.createElement('button');
+                                playBtn.style.cssText = "margin-top: 5px; padding: 5px 10px; background: #cbd5e1; color: #334155; border: none; border-radius: 15px; font-size: 12px; cursor: pointer;";
+                                playBtn.innerHTML = "🔊 กดเพื่อฟังเสียง";
+                                playBtn.onclick = () => {
+                                    audioPlayer.src = blobUrl;
+                                    audioPlayer.play();
+                                    playBtn.remove();
+                                };
+                                botMessageDiv.appendChild(playBtn);
+                                resetUI();
+                            });
+                        } else {
+                            audioPlayer.onended = function() { resetUI(); };
+                        }
+                    } else { resetUI(); }
                 } else { resetUI(); }
-            } catch (e) { resetUI(); }
+            } catch (e) { 
+                console.error(e);
+                resetUI(); 
+            }
         }
 
         function resetUI() {
             isThinking = false;
             document.getElementById('mic-btn').disabled = false;
-            document.getElementById('mic-btn').style.opacity = "1";
-            document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
+            resetMicUI();
+            if(!document.getElementById('status').innerText.includes("ระบบบล็อก")) {
+                document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
+            }
             document.getElementById('eval-btn').style.display = 'block';
         }
 
@@ -327,7 +448,6 @@ HTML_TEMPLATE = """
             document.getElementById('eval-modal').style.display = "none";
         }
 
-        // ฟังก์ชันดาวน์โหลดผลประเมินเป็น PDF
         function downloadEvalPDF() {
             var element = document.getElementById('eval-printable-area');
             var staffName = document.getElementById('staff-name').value || 'Staff';
@@ -364,7 +484,6 @@ def chat():
         lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         
-        # แก้ปัญหา AI ความจำสั้น โดยการส่งประวัติ "ทั้งหมด" แทนการตัดแค่ 8 บรรทัด
         context = "\n".join(history) 
         
         full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
@@ -419,7 +538,7 @@ def evaluate():
 
         จงตอบกลับข้อมูลในรูปแบบ JSON เท่านั้น ห้ามมีข้อความอื่นปน (ไม่ต้องมีเครื่องหมาย ```json) ดังโครงสร้างนี้:
         {{
-            "scores": [คะแนนข้อ4, คะแนนข้อ5, ..., คะแนนข้อ20], // ต้องมี 17 ตัวเลข
+            "scores": [คะแนนข้อ4, คะแนนข้อ5, ..., คะแนนข้อ20], 
             "strengths": "คำอธิบายจุดแข็ง...",
             "weaknesses": "คำอธิบายจุดอ่อน...",
             "improvements": "คำอธิบายจุดที่ต้องพัฒนา..."
