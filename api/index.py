@@ -386,4 +386,37 @@ def evaluate():
         
         response = model.generate_content(eval_prompt)
         res_text = response.text.strip()
-        if "
+        if "```json" in res_text: 
+            res_text = res_text.split("```json")[1].split("```")[0]
+        elif "```" in res_text: 
+            res_text = res_text.split("```")[1].split("```")[0]
+            
+        eval_data = json.loads(res_text)
+        scores = eval_data.get("scores", [0]*17)
+        total = sum(scores)
+        passed = total >= 50
+        
+        # บันทึกลง CSV ทันที
+        save_to_csv(staff_name, customer_name, [str(s) for s in scores], total, passed)
+        
+        eval_data["total"] = total
+        eval_data["passed"] = passed
+        return jsonify(eval_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analytics', methods=['GET'])
+def get_analytics():
+    labels = []
+    values = []
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, mode='r', encoding='utf-8-sig') as f:
+            rows = list(csv.DictReader(f))
+            # ดึง 10 รายการล่าสุดมาแสดงผล
+            for row in rows[-10:]:
+                labels.append(f"{row['Staff Name']} ({row['Timestamp']})")
+                values.append(int(row['Total Score']))
+    return jsonify({"labels": labels, "values": values})
+
+if __name__ == "__main__":
+    app.run(debug=True)
