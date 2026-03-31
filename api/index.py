@@ -28,9 +28,9 @@ def save_to_csv(staff_name, customer_name, scores, total, passed):
 
 # --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona] ---
 COLD_CALL_RULES = """
-[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" ตอบสั้นและเป็นธรรมชาติ (1-2 ประโยค) ห้ามไกด์สคริปต์
-- หากพนักงานแนะนำตัวไม่ครบ ให้ถามแค่ "ใครนะ?", "โทรมาจากไหน?" 
-- โต้ตอบตามบทบาทชีวิตของคุณ เปิดรับประกันทุกประเภทหากพนักงานหาจุดสนใจ (Hook) เจอ
+[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" ห้ามสอนงาน ห้ามไกด์สคริปต์ ตอบสั้นและเป็นธรรมชาติ (1-2 ประโยค)
+- หากพนักงานแนะนำตัวไม่ครบ/ไม่ชัดเจน ให้ถามแค่ "ใครนะ?", "เอาเบอร์มาจากไหน?"
+- ตัดสินใจโต้ตอบตามบทบาทชีวิตของคุณ เปิดรับประกันทุกประเภทหากพนักงานหาจุดสนใจ (Hook) เจอ
 """
 
 CUSTOMERS = {
@@ -51,83 +51,105 @@ def get_audio_base64(text, voice_config):
         return res.json().get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: HTML & UI (Fix iOS Audio)] ---
+# --- [ส่วนที่ 3: HTML & UI] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Mastery iOS Ready</title>
+    <title>Sales Mastery Analytics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --green: #15803d; --gold: #b45309; }
-        body { font-family: sans-serif; background: #f1f5f9; margin:0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: sans-serif; background: #f1f5f9; margin:0; }
         
+        /* Modal Style */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .modal-card { background: white; padding: 25px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; }
         
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
-        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
-        .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
+        .header { background: var(--blue); color: white; padding: 15px; text-align: center; position: relative; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; position: relative; }
+        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
         .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
         .controls { padding: 15px; background: white; border-top: 1px solid #ddd; text-align: center; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
         
-        .btn-play-audio { display: block; margin-top: 8px; padding: 5px 12px; background: #cbd5e1; border: none; border-radius: 10px; font-size: 12px; cursor: pointer; }
+        #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-view-stats { position: absolute; right: 15px; top: 15px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
         
-        #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; }
+        /* PDPA UI */
+        .pdpa-text { font-size: 13px; color: #64748b; text-align: left; line-height: 1.5; margin: 15px 0; max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
+    <!-- 1. Consent Modal (PDPA) -->
     <div id="consent-modal" class="modal-overlay">
         <div class="modal-card">
-            <h2 style="color: var(--blue)">ข้อตกลงการใช้งาน</h2>
-            <p style="font-size:14px; color:#64748b; text-align:left;">ระบบจะบันทึกเสียงและคะแนนเพื่อพัฒนาทักษะ (PDPA Compliance)</p>
-            <button onclick="acceptConsent()" style="width:100%; padding:15px; background:var(--green); color:white; border:none; border-radius:10px; font-weight:bold;">ยอมรับและเริ่มใช้งาน</button>
+            <h2 style="color: var(--blue)">ยินยอมให้เก็บข้อมูล (Consent)</h2>
+            <div class="pdpa-text">
+                <b>ข้อตกลงการใช้ระบบ Simulator:</b><br>
+                1. ระบบจะเก็บข้อมูลชื่อพนักงาน และบันทึกคะแนนการประเมินเพื่อใช้ในการวิเคราะห์พัฒนาทักษะ<br>
+                2. ข้อมูลการสนทนาจะถูกประมวลผลโดย AI เพื่อสรุปผลรายบุคคล<br>
+                3. ข้อมูลทั้งหมดจะถูกจัดเก็บภายในองค์กรเพื่อการฝึกอบรมเท่านั้น<br>
+                4. ท่านสามารถแจ้งผู้ดูแลระบบหากต้องการลบข้อมูลคะแนนย้อนหลัง<br><br>
+                <i>*การกด "ยอมรับและเริ่มใช้งาน" ถือว่าท่านรับทราบและยินยอมให้ระบบบันทึกผลการทดสอบ</i>
+            </div>
+            <button onclick="acceptConsent()" style="width:100%; padding:15px; background:var(--green); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">ยอมรับและเริ่มใช้งาน</button>
         </div>
     </div>
 
     <div id="lobby" style="display:none;">
-        <h1 style="color: var(--blue)">🏆 Sales Mastery Simulator</h1>
-        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="width:80%; padding:12px; border-radius:8px; border:1px solid #ddd;">
-        <div id="customer-list" style="margin-top:20px;"></div>
-        <button onclick="toggleAnalytics()" style="margin-top:20px; background:none; color:var(--blue); border:none; text-decoration:underline;">ดูสถิติย้อนหลัง</button>
+        <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
+        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="margin-bottom: 20px; padding: 10px; width: 80%; border-radius: 5px; border: 1px solid #ddd;">
+        <div id="customer-list"></div>
+        <button onclick="toggleAnalytics()" style="margin-top: 20px; background:none; border:1px solid var(--blue); color:var(--blue); padding:10px; border-radius:5px; cursor:pointer;">📊 ดูสถิติการพัฒนา (Analytics)</button>
     </div>
 
+    <!-- Analytics Section -->
     <div id="analytics-section">
+        <h2 style="text-align:center; color:var(--blue)">สถิติพัฒนาการพนักงาน</h2>
         <canvas id="performanceChart"></canvas>
-        <button onclick="toggleAnalytics()" style="width:100%; margin-top:10px;">ปิด</button>
+        <button onclick="toggleAnalytics()" style="width:100%; margin-top:20px; padding:10px; border-radius:8px; border:none; background:var(--gray); color:white;">ปิดหน้าต่างสถิติ</button>
     </div>
 
     <div id="main-app">
-        <div class="header"><h2 id="active-name" style="margin:0;">ลูกค้า</h2></div>
+        <div class="header">
+            <h2 id="active-name" style="margin:0;">ลูกค้า</h2>
+            <button class="btn-view-stats" onclick="location.reload()">🏠 กลับหน้าหลัก</button>
+        </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <p id="status" style="margin: 8px 0; font-size: 13px; color: #64748b;">แตะไมค์เพื่อพูด</p>
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="text-input" placeholder="พิมพ์โต้ตอบ..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #ddd;">
-                <button onclick="sendMsg()" style="padding:10px 20px; background:var(--blue); color:white; border:none; border-radius:8px;">ส่ง</button>
+            <p id="status" style="margin: 10px 0; font-size: 14px; color: #64748b;">แตะไมค์เพื่อพูด</p>
+            <div style="display:flex; gap:5px; justify-content:center;">
+                <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." style="width:70%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;" onkeypress="if(event.key==='Enter') sendMsg()">
+                <button onclick="sendMsg()" style="padding:10px; background:var(--blue); color:white; border:none; border-radius:8px;">ส่ง</button>
             </div>
-            <button id="eval-btn" style="display:none; width:100%; padding:12px; border-radius:20px; border:1px solid var(--blue); color:var(--blue); background:none; margin-top:10px; font-weight:bold;" onclick="showEvaluation()">🏁 ประเมินผล</button>
+            <button id="eval-btn" style="display:none; width:100%; padding:12px; border-radius:30px; border:2px solid var(--blue); color:var(--blue); background:none; font-weight:bold; margin-top: 15px;" onclick="showEvaluation()">🏁 ประเมินผล QC Matrix</button>
         </div>
     </div>
 
+    <!-- Evaluation Modal -->
     <div id="eval-modal" style="display:none;" class="modal-overlay">
-        <div style="background:white; padding:20px; border-radius:15px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;">
-            <div id="eval-content"></div>
-            <button onclick="location.reload()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:10px;">กลับหน้าหลัก</button>
+        <div class="eval-content" style="background:white; padding:20px; border-radius:15px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto;">
+             <div id="eval-printable-area">
+                <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบ</h2>
+                <div id="score-banner" style="text-align:center; padding:15px; border-radius:10px; color:white; font-size:20px; font-weight:bold; margin-bottom:15px;"></div>
+                <div id="fb-content"></div>
+                <div id="eval-details" style="font-size:12px;"></div>
+             </div>
+             <button onclick="location.reload()" style="width:100%; padding:15px; background:var(--blue); color:white; border:none; border-radius:8px; margin-top:15px;">เสร็จสิ้น (กลับหน้าหลัก)</button>
         </div>
     </div>
 
-    <!-- แอบใส่ไฟล์เสียงใบ้เพื่อปลดล็อค iOS -->
+    <!-- เผื่อไว้เป็น fallback ในกรณีที่ Web Audio API มีปัญหา -->
     <audio id="audio-player" playsinline style="display:none;"></audio>
 
     <script>
@@ -135,19 +157,53 @@ HTML_TEMPLATE = """
         var activeLvl = "";
         var isThinking = false;
         var customers = {{ CUSTOMERS | tojson | safe }};
-        var audioPlayer = document.getElementById('audio-player');
         
-        // ฟังก์ชันสำคัญ: ปลดล็อคเสียงสำหรับ iOS
-        function unlockAudio() {
-            audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-            audioPlayer.play().then(() => {
-                audioPlayer.pause();
-                console.log("Audio Unlocked for iOS");
-            }).catch(e => console.log("Unlock failed", e));
+        // --- ส่วนเสริมสำหรับจัดการเสียงบน iOS (Web Audio API) ---
+        var audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
+        async function playAudioWebAPI(base64String) {
+            try {
+                initAudio(); // กระตุ้น Context ให้พร้อมใช้งาน
+                
+                // แปลง Base64 เป็น ArrayBuffer
+                const binaryString = window.atob(base64String);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                // ถอดรหัสและเล่นเสียง
+                const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+                
+            } catch (error) {
+                console.error("Web Audio API failed, fallback to <audio> tag", error);
+                // Fallback วิธีเดิมเผื่อฉุกเฉิน
+                var audioPlayer = document.getElementById('audio-player');
+                if (audioPlayer) {
+                    audioPlayer.src = "data:audio/mp3;base64," + base64String;
+                    audioPlayer.play().catch(e => console.error("Audio tag fallback failed", e));
+                }
+            }
+        }
+        // ------------------------------------------------
+
         function acceptConsent() {
-            unlockAudio(); // ปลดล็อคทันทีที่กดตกลง
+            initAudio(); // ปลดล็อคเสียงให้ iOS อนุญาตตั้งแต่กดปุ่มยอมรับ
             document.getElementById('consent-modal').style.display = 'none';
             document.getElementById('lobby').style.display = 'block';
         }
@@ -160,72 +216,49 @@ HTML_TEMPLATE = """
         }
 
         function toggleListen() {
-            unlockAudio(); // ปลดล็อคซ้ำทุกครั้งที่กดไมค์
+            initAudio(); // ปลดล็อคเสียงเผื่อไว้ทุกครั้งที่มีการโต้ตอบ
             try { recognition.start(); document.getElementById('status').innerText = "🔊 กำลังฟัง..."; } catch(e){}
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อน"); return; }
+            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('active-name').innerText = customers[lvl].name;
         }
 
-        function sendMsg() {
-            unlockAudio(); // ปลดล็อคซ้ำทุกครั้งที่กดส่ง
+        async function sendMsg() {
+            initAudio(); // ปลดล็อคเสียงตอนกดส่งข้อความ
             let input = document.getElementById('text-input');
             if(input.value && !isThinking) sendToAI(input.value);
             input.value = "";
         }
 
-        // แปลง Base64 เป็น Blob URL (iOS เสถียรกว่า)
-        function base64ToBlobUrl(base64) {
-            const byteCharacters = atob(base64);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], {type: 'audio/mp3'});
-            return URL.createObjectURL(blob);
-        }
-
         async function sendToAI(t) {
             isThinking = true;
+            document.getElementById('mic-btn').disabled = true;
             document.getElementById('status').innerText = "⌛ ลูกค้ากำลังคิด...";
+            
             appendMsg('staff', 'คุณ', t);
             history_log.push("พนักงาน: " + t);
 
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: t, lvl: activeLvl, history: history_log})
-                });
-                const data = await res.json();
-                
-                let botDiv = appendMsg('customer', customers[activeLvl].name, data.reply);
-                history_log.push(customers[activeLvl].name + ": " + data.reply);
-                
-                if(data.audio) {
-                    const blobUrl = base64ToBlobUrl(data.audio);
-                    audioPlayer.src = blobUrl;
-                    
-                    // พยายามเล่นอัตโนมัติ
-                    audioPlayer.play().catch(err => {
-                        console.log("Autoplay blocked, showing manual button");
-                        // ถ้า iOS บล็อก ให้สร้างปุ่มกดฟังเอง
-                        let playBtn = document.createElement('button');
-                        playBtn.className = "btn-play-audio";
-                        playBtn.innerHTML = "🔊 กดเพื่อฟังเสียง";
-                        playBtn.onclick = () => { audioPlayer.play(); playBtn.remove(); };
-                        botDiv.appendChild(playBtn);
-                    });
-                }
-            } catch(e) {}
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: t, lvl: activeLvl, history: history_log})
+            });
+            const data = await res.json();
+            
+            appendMsg('customer', customers[activeLvl].name, data.reply);
+            history_log.push(customers[activeLvl].name + ": " + data.reply);
+            
+            if(data.audio) {
+                playAudioWebAPI(data.audio); // เรียกใช้ฟังก์ชันเล่นเสียงแบบใหม่
+            }
             
             isThinking = false;
+            document.getElementById('mic-btn').disabled = false;
             document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
             document.getElementById('eval-btn').style.display = 'block';
         }
@@ -237,7 +270,6 @@ HTML_TEMPLATE = """
             d.innerHTML = `<b>${name}:</b> ${text}`;
             box.appendChild(d);
             box.scrollTop = box.scrollHeight;
-            return d;
         }
 
         async function showEvaluation() {
@@ -252,8 +284,51 @@ HTML_TEMPLATE = """
                 })
             });
             const data = await res.json();
-            document.getElementById('eval-content').innerHTML = `<h3>คะแนน: ${data.total}/85</h3><p><b>จุดแข็ง:</b> ${data.strengths}</p><p><b>จุดอ่อน:</b> ${data.weaknesses}</p>`;
+            
+            const banner = document.getElementById('score-banner');
+            banner.innerText = `คะแนน: ${data.total}/85 (${data.passed ? "ผ่าน" : "ไม่ผ่าน"})`;
+            banner.style.background = data.passed ? "var(--green)" : "var(--red)";
+            
+            document.getElementById('fb-content').innerHTML = `
+                <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:10px;">
+                    <b>จุดแข็ง:</b> ${data.strengths}<br>
+                    <b>จุดอ่อน:</b> ${data.weaknesses}
+                </div>`;
+            
             document.getElementById('eval-modal').style.display = 'flex';
+        }
+
+        async function toggleAnalytics() {
+            let sec = document.getElementById('analytics-section');
+            if(sec.style.display === 'block') {
+                sec.style.display = 'none';
+            } else {
+                sec.style.display = 'block';
+                const res = await fetch('/api/analytics');
+                const data = await res.json();
+                renderChart(data);
+            }
+        }
+
+        let myChart = null;
+        function renderChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'คะแนนรวมพนักงานล่าสุด',
+                        data: data.values,
+                        borderColor: '#1e3a8a',
+                        backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { scales: { y: { min: 0, max: 85 } } }
+            });
         }
 
         var list = document.getElementById('customer-list');
@@ -271,7 +346,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- [ส่วนที่ 4: Backend API (เหมือนเดิม)] ---
+# --- [ส่วนที่ 4: เชื่อมต่อ API และ Backend] ---
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
@@ -283,31 +358,32 @@ def chat():
         lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         context = "\n".join(history[-5:])
-        full_prompt = f"{cust['prompt']}\nประวัติ: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบสั้นๆ:"
+        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
         response = model.generate_content(full_prompt)
         reply_text = response.text.strip()
         audio_data = get_audio_base64(reply_text, cust['voice'])
         return jsonify({"reply": reply_text, "audio": audio_data})
-    except:
-        return jsonify({"reply": "สัญญาณไม่ดีเลยครับ...", "audio": None})
+    except Exception as e:
+        return jsonify({"reply": "ขอโทษทีครับ ระบบขัดข้อง", "audio": None}), 500
 
 @app.route('/api/evaluate', methods=['POST'])
 def evaluate():
     try:
         data = request.json
-        eval_prompt = f"ประเมินบทสนทนานี้ตามกฎ คปภ. (JSON Only): {data.get('history')}"
+        history = data.get('history', '')
+        staff_name = data.get('staff_name', 'Unknown')
+        customer_name = data.get('customer_name', 'Unknown')
+        
+        eval_prompt = f"""วิเคราะห์ประวัติการขายประกันนี้ตาม QC Matrix 17 ข้อ (ข้อ 4-20) 
+        ประวัติ: {history}
+        ตอบกลับเป็น JSON เท่านั้น:
+        {{
+            "scores": [คะแนนข้อ4-20 รวม 17 ตัวเลข],
+            "strengths": "...",
+            "weaknesses": "...",
+            "improvements": "..."
+        }}"""
+        
         response = model.generate_content(eval_prompt)
         res_text = response.text.strip()
-        if "```json" in res_text: res_text = res_text.split("```json")[1].split("```")[0]
-        eval_data = json.loads(res_text)
-        scores = eval_data.get("scores", [0]*17)
-        total = sum(scores)
-        save_to_csv(data.get('staff_name'), data.get('customer_name'), [str(s) for s in scores], total, total>=50)
-        eval_data["total"] = total
-        eval_data["passed"] = total>=50
-        return jsonify(eval_data)
-    except:
-        return jsonify({"total": 0, "strengths": "Error", "weaknesses": "Error"})
-
-if __name__ == "__main__":
-    app.run(debug=True)
+        if "
