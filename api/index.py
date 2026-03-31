@@ -7,12 +7,16 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- [ส่วนที่ 1: ตั้งค่า API] ---
+# --- [ส่วนที่ 1: ตั้งค่า API - อัพเกรดเป็น Gemini 3.1 Flash-Lite] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-2.5-flash")
+
+# เปลี่ยนเป็นรุ่น 3.1 Flash-Lite เพื่อความเร็วสูงสุดและเสถียรภาพในการประมวลผลตรรกะ
+model = genai.GenerativeModel(
+    model_name="gemini-3.1-flash-lite-preview"
+)
 
 # --- [ส่วนที่ 2: ลอจิก Cold Call และ รายชื่อลูกค้า] ---
 COLD_CALL_RULES = """
@@ -125,7 +129,6 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body>
-    <!-- แก้ไข 1: เพิ่มแท็ก Audio สำหรับ iOS -->
     <audio id="audio-player" playsinline style="display:none;"></audio>
 
     <div id="lobby">
@@ -141,7 +144,6 @@ HTML_TEMPLATE = """
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
             <p id="status" style="margin: 0; font-size: 14px; color: #64748b;">แตะไมค์เพื่อพูด</p>
             
-            <!-- แก้ไข 5: ช่องพิมพ์สำรองเผื่อไมค์ใช้ไม่ได้ -->
             <div class="fallback-input-container">
                 <input type="text" id="text-fallback" placeholder="หรือพิมพ์ข้อความที่นี่..." onkeypress="handleEnter(event)">
                 <button onclick="sendFallbackText()">ส่ง</button>
@@ -152,7 +154,6 @@ HTML_TEMPLATE = """
     </div>
 
     <div id="eval-modal">
-        <!-- โค้ด Modal ของเดิม -->
         <div class="eval-content" id="eval-report-container">
             <div id="eval-printable-area">
                 <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบสคริปต์</h2>
@@ -232,7 +233,6 @@ HTML_TEMPLATE = """
             unlockAudio();
         }
 
-        // แก้ไข 2: ปลดล็อค Audio Context ด้วยไฟล์เสียงเงียบ
         function unlockAudio() {
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
             var playPromise = audioPlayer.play();
@@ -241,7 +241,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        // แก้ไข 3: แปลง Base64 เป็น Blob URL
         function b64toBlobUrl(b64Data, contentType='audio/mp3') {
             try {
                 const byteCharacters = atob(b64Data);
@@ -318,7 +317,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        // ฟังก์ชันวาดกล่องข้อความ
         function appendMessage(role, name, text) {
             var box = document.getElementById('chat-box');
             var div = document.createElement('div');
@@ -367,7 +365,6 @@ HTML_TEMPLATE = """
                                 console.error("Autoplay blocked by iOS:", e);
                                 document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (เสียงถูกระบบบล็อก)";
                                 
-                                // แก้ไข 4: เพิ่มปุ่มเล่นเสียงสำรองถ้า iOS บล็อก
                                 const playBtn = document.createElement('button');
                                 playBtn.style.cssText = "margin-top: 5px; padding: 5px 10px; background: #cbd5e1; color: #334155; border: none; border-radius: 15px; font-size: 12px; cursor: pointer;";
                                 playBtn.innerHTML = "🔊 กดเพื่อฟังเสียง";
@@ -492,6 +489,7 @@ def chat():
 พนักงานขายพูดว่า: "{user_msg}"
 จงตอบกลับในฐานะลูกค้าเท่านั้น:"""
 
+        # ใช้รุ่น 3.1 Flash-Lite ที่ตั้งค่าไว้ตอนต้น
         response = model.generate_content(full_prompt)
         reply_text = response.text
         audio_data = get_audio_base64(reply_text, cust['voice'])
@@ -504,6 +502,7 @@ def evaluate():
     try:
         history = request.json.get('history', '')
         
+        # เพิ่มความแม่นยำในการขอ JSON ด้วยการระบุความต้องการให้ชัดเจนขึ้นสำหรับรุ่น 3.1
         eval_prompt = f"""
         ในฐานะผู้ตรวจสอบคุณภาพ (QA) ของบริษัทประกันภัย จงประเมินบทสนทนาการขายทางโทรศัพท์ต่อไปนี้
         ประวัติการสนทนา:
@@ -536,7 +535,7 @@ def evaluate():
         - จุดอ่อน (Weaknesses) ที่พนักงานพลาดไป
         - จุดที่ต้องปรับปรุงพัฒนา (Improvements) เพื่อให้ผ่านเกณฑ์หรือยอดเยี่ยมขึ้น
 
-        จงตอบกลับข้อมูลในรูปแบบ JSON เท่านั้น ห้ามมีข้อความอื่นปน (ไม่ต้องมีเครื่องหมาย ```json) ดังโครงสร้างนี้:
+        [IMPORTANT]: Output MUST be ONLY valid JSON.
         {{
             "scores": [คะแนนข้อ4, คะแนนข้อ5, ..., คะแนนข้อ20], 
             "strengths": "คำอธิบายจุดแข็ง...",
@@ -545,13 +544,15 @@ def evaluate():
         }}
         """
         
+        # รุ่น 3.1 Flash-Lite มีความสามารถในการวิเคราะห์ที่รวดเร็วมาก
         response = model.generate_content(eval_prompt)
         result_text = response.text.strip()
         
-        if result_text.startswith("```json"):
-            result_text = result_text[7:-3].strip()
-        elif result_text.startswith("```"):
-            result_text = result_text[3:-3].strip()
+        # ทำความสะอาด Markdown JSON หากมี
+        if "```json" in result_text:
+            result_text = result_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in result_text:
+            result_text = result_text.split("```")[1].split("```")[0].strip()
             
         eval_data = json.loads(result_text)
         
@@ -571,7 +572,7 @@ def evaluate():
             "total": 0,
             "passed": False,
             "strengths": "ไม่สามารถวิเคราะห์ข้อมูลได้",
-            "weaknesses": "เกิดข้อผิดพลาดในการประมวลผล",
+            "weaknesses": f"เกิดข้อผิดพลาด: {str(e)}",
             "improvements": "กรุณาลองใหม่อีกครั้ง"
         }), 500
 
