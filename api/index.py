@@ -7,62 +7,63 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# --- [ส่วนที่ 1: ตั้งค่า API - อัพเกรดเป็น Gemini 3.1 Flash-Lite] ---
+# --- [ส่วนที่ 1: ตั้งค่า API - อัปเกรดเป็น Gemini 3.1 Flash-Lite] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
 
 genai.configure(api_key=GENAI_API_KEY)
 
-# เปลี่ยนเป็นรุ่น 3.1 Flash-Lite เพื่อความเร็วสูงสุดและเสถียรภาพในการประมวลผลตรรกะ
+# ใช้รุ่น 3.1 Flash-Lite: เร็วที่สุดในปัจจุบัน (Low Latency) และฉลาดในเชิงตรรกะมนุษย์
 model = genai.GenerativeModel(
     model_name="gemini-3.1-flash-lite-preview"
 )
 
-# --- [ส่วนที่ 2: ลอจิก Cold Call และ รายชื่อลูกค้า] ---
+# --- [ส่วนที่ 2: ลอจิกการโต้ตอบแบบสมจริง (Universal Persona-Based)] ---
 COLD_CALL_RULES = """
-[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" เท่านั้น ห้ามตอบหรือสวมบทบาทเป็นพนักงานเด็ดขาด
-1. [การจดจำ]: อ่าน History ให้ละเอียด ห้ามถามชื่อพนักงานหรือเลขใบอนุญาตซ้ำหากเคยแจ้งแล้ว
-2. [คำแทนตัว]: ผู้หญิงใช้ 'ฉัน/เรา', ผู้ชายใช้ 'ผม' 
-3. [บุคลิก]: เริ่มจากไม่ไว้วางใจ ปฏิเสธการขายในช่วงแรก 4-5 รอบ จนกว่าพนักงานจะพูดถูกต้องตามกฎ คปภ.
-4. [กฎการแนะนำตัว]: หากพนักงาน "ยังไม่ได้แนะนำตัวครบถ้วนไม่ต้องเตือนให้พนักงานพูด" (ชื่อ-นามสกุล, ชื่อบริษัท, เลขใบอนุญาต) แต่ห้ามยอมให้พนักงานอธิบายรายละเอียดลึกๆ ของแบบประกัน (เช่น เงื่อนไข, ข้อยกเว้น, หรือค่าเบี้ยประกัน) เด็ดขาด ให้ตัดบทหรือท้วงถามทันที
-5. [การอนุโลมจุดขาย / Hook]: หากพนักงานยังไม่แนะนำตัว แต่เปิดบทสนทนาด้วย "จุดขายเพื่อดึงดูดความสนใจ" (เช่น วงเงินคุ้มครองสูง, ผลตอบแทนสูงสุด x%, เงินคืนทุกปี) ให้อนุโลมรับฟังและแสดงความสนใจได้เล็กน้อย แต่ต้องวกกลับไปถามตัวตนพนักงานเสมอ
+[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้าตัวจริง" ที่กำลังยุ่ง ห้ามสวมบทบาทพนักงานหรือครูฝึกเด็ดขาด
+1. [ความสมจริง]: ตอบให้สั้น กระชับ (Short & Blunt) เหมือนคนรับสายแปลกๆ ห้ามพูดยาวเกิน 2 ประโยคในช่วงแรก
+2. [ห้ามสอนงาน/ห้ามไกด์]: ห้ามแนะนำหรือเตือนพนักงานเรื่องการพูดสคริปต์ (เช่น ห้ามพูดว่า "คุณยังไม่ได้แจ้งเลขใบอนุญาตนะ") หากเขาทำผิดกฎ คุณแค่ต้องรู้สึก "ไม่ไว้ใจ" และถามจี้ว่า "คุณเป็นใครนะ?", "โทรมาจากไหน?"
+3. [เปิดรับทุกประกัน]: คุณพร้อมฟังประกันทุกรูปแบบ (ชีวิต, สุขภาพ, ออมทรัพย์, รถยนต์, มรดก) โดยให้ตัดสินใจโต้ตอบตาม "พื้นฐานชีวิต" ของคุณ
+4. [ตรรกะการปฏิเสธ]: ปฏิเสธแบบคนทั่วไปในช่วงแรก เช่น "ไม่ว่าง", "มีเยอะแล้ว", "ติดธุระ" จนกว่าพนักงานจะมีจุดสนใจ (Hook) ที่ตรงกับชีวิตคุณจริงๆ
+5. [ภาษา]: ใช้ภาษาพูดธรรมชาติ (Natural Thai) ไม่ต้องสุภาพเป็นทางการเหมือนหุ่นยนต์
 """
 
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า", 
-        "desc": "ออม 20/9", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 25 ปี ลงท้าย 'ค่ะ'", 
+        "desc": "พนักงานออฟฟิศจบใหม่ (First Jobber)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 23 ปี เพิ่งเริ่มทำงาน เงินเดือนยังน้อย ห่วงเรื่องการออมเงินและการใช้จ่ายรายวัน ถ้าเสนอประกันที่เบี้ยแพงเกินไปจะบ่นทันที ลงท้าย 'ค่ะ' แบบรีบๆ", 
         "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"} 
     },
     "2": {
-        "name": "คุณวิรัช", 
-        "desc": "สุขภาพ", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ลงท้าย 'ครับ' เน้นถามเรื่องความคุ้มครองสุขภาพ", 
+        "name": "เฮียวิรัช", 
+        "desc": "เจ้าของอู่ซ่อมรถ (SME Owner)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี มีครอบครัว กังวลเรื่องค่ารักษาพยาบาลที่แพงขึ้นและภาษีธุรกิจ ชอบคุยเรื่องความคุ้มค่าและตัวเลขตรงๆ ลงท้าย 'ครับ'", 
         "voice": {"name": "th-TH-Chirp3-HD-Achird", "gender": "MALE"}
     },
     "3": {
-        "name": "คุณป้ามาลี", 
-        "desc": "มรดก", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 50 ปี ลงท้าย 'ค่ะ/จ๊ะ'", 
+        "name": "ป้ามาลี", 
+        "desc": "แม่ค้าตลาดสด (คนหัวเก่า)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 60 ปี มีเงินเก็บแต่ไม่ไว้ใจบริษัทประกัน ชอบถามว่า 'ตายแล้วได้เงินจริงไหม' 'เบิกยากไหม' เน้นภาษาชาวบ้าน ลงท้าย 'จ๊ะ/ค่ะ'", 
         "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"} 
     },
     "4": {
-        "name": "แม่แอน", 
-        "desc": "ปฏิเสธหนัก", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' ปฏิเสธเรื่องประกันตลอด", 
+        "name": "คุณแอน", 
+        "desc": "คุณแม่ลูกอ่อน (สายปกป้องลูก)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' อายุ 32 ปี ห่วงลูกมากที่สุด อะไรที่เป็นประโยชน์กับลูกจะยอมฟัง แต่ถ้าโทรมาจังหวะลูกร้องจะหงุดหงิดมาก ลงท้าย 'ค่ะ'", 
         "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"} 
     },
     "5": {
         "name": "คุณอัครเดช", 
-        "desc": "นักธุรกิจ", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' เวลาน้อยและดุ", 
+        "desc": "ผู้บริหารระดับสูง (HNW)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' อายุ 55 ปี รู้เรื่องการเงินดีมาก ถ้าพนักงานพูดจาวนไปวนมาหรือไม่มืออาชีพจะวางสายทันที สนใจเรื่องการส่งต่อมรดกและภาษี ลงท้าย 'ครับ'", 
         "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"} 
     }
 }
 
 def get_audio_base64(text, voice_config):
     if not TTS_API_KEY: return None
+    # ทำความสะอาดข้อความก่อนส่งไป TTS
     clean_text = re.sub(r'^.*?:', '', text)
     clean_text = re.sub(r'\(.*?\)', '', clean_text).replace('*', '').strip()
     if not clean_text: return None
@@ -78,43 +79,41 @@ def get_audio_base64(text, voice_config):
         },
         "audioConfig": {"audioEncoding": "MP3"}
     }
-    if "Chirp3" not in voice_name:
-        payload["audioConfig"]["pitch"] = voice_config.get("pitch", 0.0)
-        payload["audioConfig"]["speakingRate"] = voice_config.get("rate", 1.0)
-        
+    
     try:
         res = requests.post(url, json=payload, timeout=10)
         res_json = res.json()
         return res_json.get("audioContent")
     except: return None
 
-# --- [ส่วนที่ 3: UI และ HTML] ---
+# --- [ส่วนที่ 3: UI และ HTML Template (คงเดิมแต่ปรับปรุงส่วนแสดงผล)] ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Mastery Simulator</title>
+    <title>Sales Mastery Simulator v3.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --gold: #b45309; --green: #15803d; }
         body { font-family: sans-serif; background: #f1f5f9; margin:0; }
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
         input[type="text"] { padding: 15px; width: 85%; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
-        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; transition: 0.2s; }
+        .card:hover { transform: scale(1.02); }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
         .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
-        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; display: flex; flex-direction: column; gap: 5px; }
+        .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
         .controls { padding: 15px; text-align: center; background: white; border-top: 1px solid #ddd; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; margin-bottom: 5px; }
         .btn-mic:disabled { background: var(--gray) !important; opacity: 0.6; }
         .fallback-input-container { display: flex; gap: 8px; margin-top: 10px; justify-content: center; }
         .fallback-input-container input { width: 75%; padding: 12px; font-size: 16px; margin: 0; }
-        .fallback-input-container button { padding: 12px 20px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .fallback-input-container button { padding: 12px 20px; background: var(--blue); color: white; border: none; border-radius: 8px; cursor: pointer; }
         
         #eval-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; overflow-y:auto; }
         .eval-content { background:white; max-width:600px; margin:30px auto; padding:25px; border-radius:15px; }
@@ -124,7 +123,6 @@ HTML_TEMPLATE = """
         .feedback-box { background: #f1f5f9; padding: 15px; border-left: 5px solid var(--blue); margin-bottom: 15px; border-radius: 5px; }
         .eval-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
         .stars { color: #eab308; font-weight: bold; }
-        
         #cert-area { display:none; background: white; padding: 40px; border: 15px double var(--gold); text-align: center; }
     </style>
 </head>
@@ -133,7 +131,8 @@ HTML_TEMPLATE = """
 
     <div id="lobby">
         <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
-        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="margin-bottom: 20px;">
+        <p>ยกระดับทักษะการโทรด้วย AI Simulator รุ่น 3.1 Flash-Lite</p>
+        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงานเพื่อเริ่มการทดสอบ">
         <div id="customer-list"></div>
     </div>
 
@@ -145,7 +144,7 @@ HTML_TEMPLATE = """
             <p id="status" style="margin: 0; font-size: 14px; color: #64748b;">แตะไมค์เพื่อพูด</p>
             
             <div class="fallback-input-container">
-                <input type="text" id="text-fallback" placeholder="หรือพิมพ์ข้อความที่นี่..." onkeypress="handleEnter(event)">
+                <input type="text" id="text-fallback" placeholder="หรือพิมพ์โต้ตอบที่นี่..." onkeypress="handleEnter(event)">
                 <button onclick="sendFallbackText()">ส่ง</button>
             </div>
 
@@ -153,6 +152,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- Modal และหน้ารายงาน (คงไว้ตามเดิม) -->
     <div id="eval-modal">
         <div class="eval-content" id="eval-report-container">
             <div id="eval-printable-area">
@@ -170,7 +170,7 @@ HTML_TEMPLATE = """
                     <b>📈 จุดที่ต้องพัฒนา:</b> <span id="fb-improve"></span>
                 </div>
                 
-                <h3 style="margin-top:20px;">รายละเอียดคะแนน (17 หัวข้อ)</h3>
+                <h3 style="margin-top:20px;">รายละเอียดคะแนน (QC Matrix)</h3>
                 <div id="eval-details"></div>
             </div>
             
@@ -225,7 +225,7 @@ HTML_TEMPLATE = """
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
+            if(!document.getElementById('staff-name').value) { alert("กรุณาระบุชื่อพนักงานก่อนครับ"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
@@ -235,10 +235,7 @@ HTML_TEMPLATE = """
 
         function unlockAudio() {
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-            var playPromise = audioPlayer.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(function(e) { console.log("Unlock audio blocked."); });
-            }
+            audioPlayer.play().catch(e => console.log("Audio unlock interaction needed"));
         }
 
         function b64toBlobUrl(b64Data, contentType='audio/mp3') {
@@ -254,9 +251,7 @@ HTML_TEMPLATE = """
                     byteArrays.push(new Uint8Array(byteNumbers));
                 }
                 return URL.createObjectURL(new Blob(byteArrays, {type: contentType}));
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
         if(recognition) {
@@ -264,55 +259,32 @@ HTML_TEMPLATE = """
                 var t = e.results[0][0].transcript;
                 if (t.length > 0 && !isThinking) { sendToAI(t); }
             };
-
-            recognition.onerror = function(e) {
-                console.error("Speech Recognition Error:", e.error);
-                document.getElementById('status').innerText = "❌ ไมค์มีปัญหา (" + e.error + ") กรุณาพิมพ์แทน";
-                resetMicUI();
-            };
-
-            recognition.onend = function() {
-                if(!isThinking) resetMicUI();
-            };
+            recognition.onend = function() { resetMicUI(); };
         }
 
         function toggleListen() {
             if (isThinking) return;
             unlockAudio();
-            
-            if(!recognition) {
-                alert("เบราว์เซอร์ของคุณไม่รองรับการพิมพ์ด้วยเสียง กรุณาใช้ช่องพิมพ์ข้อความครับ");
-                return;
-            }
-
+            if(!recognition) { alert("เบราว์เซอร์ไม่รองรับ Speech Recognition"); return; }
             try {
-                audioPlayer.pause();
                 recognition.start();
                 document.getElementById('mic-btn').style.opacity = "0.5";
                 document.getElementById('status').innerText = "กำลังฟัง... (พูดได้เลย)";
-            } catch(e) {
-                console.error("Mic start error", e);
-            }
+            } catch(e) {}
         }
 
         function resetMicUI() {
             document.getElementById('mic-btn').style.opacity = "1";
-            if(document.getElementById('status').innerText.includes("กำลังฟัง")) {
-                document.getElementById('status').innerText = "แตะไมค์เพื่อพูด หรือพิมพ์ข้อความ";
-            }
+            document.getElementById('status').innerText = "แตะไมค์เพื่อพูด หรือพิมพ์ข้อความ";
         }
 
-        function handleEnter(e) {
-            if(e.key === 'Enter') sendFallbackText();
-        }
+        function handleEnter(e) { if(e.key === 'Enter') sendFallbackText(); }
 
         function sendFallbackText() {
             var input = document.getElementById('text-fallback');
             var t = input.value.trim();
             if(t !== "" && !isThinking) {
                 input.value = "";
-                if(recognition) recognition.stop();
-                unlockAudio(); 
                 sendToAI(t);
             }
         }
@@ -320,13 +292,8 @@ HTML_TEMPLATE = """
         function appendMessage(role, name, text) {
             var box = document.getElementById('chat-box');
             var div = document.createElement('div');
-            if (role === 'staff') {
-                div.className = "msg staff";
-                div.innerHTML = "<b>" + name + ":</b> " + text;
-            } else {
-                div.className = "msg customer";
-                div.innerHTML = "<div><b>" + name + ":</b> " + text + "</div>";
-            }
+            div.className = "msg " + role;
+            div.innerHTML = "<b>" + name + ":</b> " + text;
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
             return div;
@@ -356,50 +323,27 @@ HTML_TEMPLATE = """
                     const blobUrl = b64toBlobUrl(data.audio);
                     if (blobUrl) {
                         audioPlayer.src = blobUrl;
-                        var playPromise = audioPlayer.play();
-                        
-                        if (playPromise !== undefined) {
-                            playPromise.then(_ => {
-                                audioPlayer.onended = function() { resetUI(); };
-                            }).catch(e => {
-                                console.error("Autoplay blocked by iOS:", e);
-                                document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (เสียงถูกระบบบล็อก)";
-                                
-                                const playBtn = document.createElement('button');
-                                playBtn.style.cssText = "margin-top: 5px; padding: 5px 10px; background: #cbd5e1; color: #334155; border: none; border-radius: 15px; font-size: 12px; cursor: pointer;";
-                                playBtn.innerHTML = "🔊 กดเพื่อฟังเสียง";
-                                playBtn.onclick = () => {
-                                    audioPlayer.src = blobUrl;
-                                    audioPlayer.play();
-                                    playBtn.remove();
-                                };
-                                botMessageDiv.appendChild(playBtn);
-                                resetUI();
-                            });
-                        } else {
-                            audioPlayer.onended = function() { resetUI(); };
-                        }
+                        audioPlayer.play().catch(e => {
+                            const playBtn = document.createElement('button');
+                            playBtn.innerText = "🔊 กดเพื่อฟังเสียง";
+                            playBtn.onclick = () => audioPlayer.play();
+                            botMessageDiv.appendChild(playBtn);
+                        });
+                        audioPlayer.onended = () => { resetUI(); };
                     } else { resetUI(); }
                 } else { resetUI(); }
-            } catch (e) { 
-                console.error(e);
-                resetUI(); 
-            }
+            } catch (e) { resetUI(); }
         }
 
         function resetUI() {
             isThinking = false;
             document.getElementById('mic-btn').disabled = false;
-            resetMicUI();
-            if(!document.getElementById('status').innerText.includes("ระบบบล็อก")) {
-                document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
-            }
+            document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
             document.getElementById('eval-btn').style.display = 'block';
         }
 
         async function showEvaluation() {
-            document.getElementById('status').innerText = "⌛ กำลังให้ AI ตรวจสอบ QC Matrix...";
-            
+            document.getElementById('status').innerText = "⌛ กำลังตรวจสอบ QC Matrix...";
             try {
                 const res = await fetch('/api/evaluate', {
                     method: 'POST',
@@ -412,8 +356,7 @@ HTML_TEMPLATE = """
                 document.getElementById('report-customer-name').innerText = customers[activeLvl].name;
 
                 const banner = document.getElementById('score-banner');
-                const resultText = data.passed ? "ผ่านเกณฑ์" : "ไม่ผ่านเกณฑ์";
-                banner.innerText = "คะแนนรวม: " + data.total + "/85 (" + resultText + ")";
+                banner.innerText = "คะแนนรวม: " + data.total + "/85 (" + (data.passed ? "ผ่านเกณฑ์" : "ไม่ผ่านเกณฑ์") + ")";
                 banner.className = data.passed ? "score-box pass" : "score-box fail";
                 
                 document.getElementById('fb-strength').innerText = data.strengths;
@@ -423,53 +366,32 @@ HTML_TEMPLATE = """
                 let detailsHTML = "";
                 for(let i=0; i<17; i++) {
                     let score = data.scores[i] || 0;
-                    let stars = "⭐".repeat(score) + "❌".repeat(5-score);
-                    detailsHTML += `<div class="eval-item"><span>${criteriaList[i]}</span><span class="stars">${stars} (${score}/5)</span></div>`;
+                    detailsHTML += `<div class="eval-item"><span>${criteriaList[i]}</span><span class="stars">${"⭐".repeat(score)}${"❌".repeat(5-score)} (${score}/5)</span></div>`;
                 }
                 document.getElementById('eval-details').innerHTML = detailsHTML;
-                
-                if(data.passed && activeLvl === "5") {
-                    document.getElementById('cert-btn').style.display = "block";
-                }
-                
+                if(data.passed && activeLvl === "5") document.getElementById('cert-btn').style.display = "block";
                 document.getElementById('eval-modal').style.display = "block";
                 document.getElementById('status').innerText = "✅ ประเมินเสร็จสิ้น";
-
-            } catch (e) {
-                alert("เกิดข้อผิดพลาดในการประเมินผล");
-                document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
-            }
+            } catch (e) { alert("การประเมินผิดพลาด"); }
         }
         
-        function closeEvaluation() {
-            document.getElementById('eval-modal').style.display = "none";
-        }
-
+        function closeEvaluation() { document.getElementById('eval-modal').style.display = "none"; }
         function downloadEvalPDF() {
             var element = document.getElementById('eval-printable-area');
-            var staffName = document.getElementById('staff-name').value || 'Staff';
-            var opt = {
-                margin:       0.5,
-                filename:     'QC_Evaluation_' + staffName + '.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().set(opt).from(element).save();
+            html2pdf().from(element).save('QC_Report_' + document.getElementById('staff-name').value + '.pdf');
         }
-        
         function generateCert() {
             document.getElementById('pdf-staff').innerText = document.getElementById('staff-name').value;
             var el = document.getElementById('cert-area');
             el.style.display = 'block';
-            html2pdf().from(el).save().then(function(){ el.style.display = 'none'; });
+            html2pdf().from(el).save().then(() => el.style.display = 'none');
         }
     </script>
 </body>
 </html>
 """
 
-# --- [ส่วนที่ 4: เชื่อมต่อ API] ---
+# --- [ส่วนที่ 4: เชื่อมต่อ API และประมวลผล] ---
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
@@ -480,16 +402,10 @@ def chat():
         data = request.json
         lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
+        context = "\n".join(history[-5:]) # ส่งเฉพาะ 5 ล่าสุดเพื่อความไวและประหยัด token
         
-        context = "\n".join(history) 
+        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
         
-        full_prompt = f"""บทบาทของคุณ: {cust['prompt']}
-ประวัติการคุยตั้งแต่ต้น:
-{context}
-พนักงานขายพูดว่า: "{user_msg}"
-จงตอบกลับในฐานะลูกค้าเท่านั้น:"""
-
-        # ใช้รุ่น 3.1 Flash-Lite ที่ตั้งค่าไว้ตอนต้น
         response = model.generate_content(full_prompt)
         reply_text = response.text
         audio_data = get_audio_base64(reply_text, cust['voice'])
@@ -501,80 +417,36 @@ def chat():
 def evaluate():
     try:
         history = request.json.get('history', '')
-        
-        # เพิ่มความแม่นยำในการขอ JSON ด้วยการระบุความต้องการให้ชัดเจนขึ้นสำหรับรุ่น 3.1
         eval_prompt = f"""
-        ในฐานะผู้ตรวจสอบคุณภาพ (QA) ของบริษัทประกันภัย จงประเมินบทสนทนาการขายทางโทรศัพท์ต่อไปนี้
-        ประวัติการสนทนา:
-        {history}
-
-        ให้ประเมินผล 17 ข้อ (ตั้งแต่ข้อ 4 ถึงข้อ 20) โดยให้คะแนนข้อละ 1-5 ดาว 
-        (1=แย่มากหรือไม่พูดถึงเลย, 5=ทำได้ดีเยี่ยมครบถ้วน)
+        วิเคราะห์ประวัติการขายประกันนี้ตาม QC Matrix 17 ข้อ (ข้อ 4-20) 
+        ประวัติ: {history}
         
-        รายการประเมิน:
-        4. การเปิดตัวแจ้งชื่อ-นามสกุล พนักงาน
-        5. การเปิดตัวแจ้ง เลขที่ใบอนุญาต และรหัสพนักงาน
-        6. การเปิดตัวแจ้ง ชื่อบริษัทต้นสังกัด
-        7. การเปิดตัวแจ้ง ถามความสะดวกในการสนทนากับลูกค้า และขออนุญาตบันทึกเทป
-        8. บทเปิดตัวมีการเชื่อมโยงและโน้มน้าว เพื่อนำไปสู่บทการนำเสนอ
-        9. บทการนำเสนอผลิตภัณฑ์ อธิบายผลประโยชน์ เงื่อนไข และข้อยกเว้น
-        10. บทการนำแจ้งค่าเบี้ยประกันให้ลูกค้ารับทราบ
-        11. บทการนำเสนออธิบายเกี่ยวกับมูลค่ากรมธรรม์ การเวนคืนได้ถูกต้อง
-        12. บทการนำเสนออธิบายถึงการนำเบี้ยประกันไปลดหย่อนภาษี
-        13. ประโยคและวิธีการตอบคำถามและข้อโต้แย้งชัดเจน ตรงประเด็น และโน้มน้าวให้ตกลงซื้อ
-        14. อธิบายและชี้ช่องการการสมัคร พร้อมวิธีการชำระเบี้ยประกันชีวิต
-        15. ใช้ประโยคปิดการขายภายหลังจากนำเสนอ และ/หรือการตอบข้อโต้แย้ง ไม่น้อยกว่า 3 ครั้ง
-        16. ประโยคสคริปต์การขายโดยรวม
-        17. น้ำเสียงการสนทนาโดยรวมสร้างความประทับใจให้ลูกค้า (วิเคราะห์จากบริบทการพิมพ์)
-        18. ระหว่างการสนทนาตั้งแต่เริ่มจนวางสาย พนักงานสามารถควบคุมสถานการณ์ อารมณ์ และน้ำเสียง 
-        19. มีทักษะและไหวพริบการรับฟัง ตอบคำถาม และสร้างการสนทนาโต้ตอบกับลูกค้า 
-        20. พนักงานสามารถฝึกฝนและพัฒนา สคริปท์การขายและทักษะการโน้มน้าวได้
-
-        วิเคราะห์และสรุป:
-        - จุดแข็ง (Strengths) ของพนักงานคนนี้
-        - จุดอ่อน (Weaknesses) ที่พนักงานพลาดไป
-        - จุดที่ต้องปรับปรุงพัฒนา (Improvements) เพื่อให้ผ่านเกณฑ์หรือยอดเยี่ยมขึ้น
-
-        [IMPORTANT]: Output MUST be ONLY valid JSON.
+        ให้คะแนน 1-5 ดาว ในแต่ละข้อ และสรุปจุดแข็ง จุดอ่อน จุดพัฒนา
+        ตอบกลับเป็น JSON เท่านั้น:
         {{
-            "scores": [คะแนนข้อ4, คะแนนข้อ5, ..., คะแนนข้อ20], 
-            "strengths": "คำอธิบายจุดแข็ง...",
-            "weaknesses": "คำอธิบายจุดอ่อน...",
-            "improvements": "คำอธิบายจุดที่ต้องพัฒนา..."
+            "scores": [คะแนนข้อ4, ..., คะแนนข้อ20],
+            "strengths": "...",
+            "weaknesses": "...",
+            "improvements": "..."
         }}
         """
-        
-        # รุ่น 3.1 Flash-Lite มีความสามารถในการวิเคราะห์ที่รวดเร็วมาก
         response = model.generate_content(eval_prompt)
         result_text = response.text.strip()
         
-        # ทำความสะอาด Markdown JSON หากมี
+        # คลีน JSON จาก Markdown
         if "```json" in result_text:
             result_text = result_text.split("```json")[1].split("```")[0].strip()
         elif "```" in result_text:
             result_text = result_text.split("```")[1].split("```")[0].strip()
             
         eval_data = json.loads(result_text)
-        
-        scores_array = eval_data.get("scores", [0]*17)
-        total_score = sum(scores_array)
-        is_passed = total_score >= 50
-        
+        total_score = sum(eval_data.get("scores", [0]*17))
         eval_data["total"] = total_score
-        eval_data["passed"] = is_passed
+        eval_data["passed"] = total_score >= 50
         
         return jsonify(eval_data)
-        
     except Exception as e:
-        print(f"Eval Error: {e}")
-        return jsonify({
-            "scores": [0]*17,
-            "total": 0,
-            "passed": False,
-            "strengths": "ไม่สามารถวิเคราะห์ข้อมูลได้",
-            "weaknesses": f"เกิดข้อผิดพลาด: {str(e)}",
-            "improvements": "กรุณาลองใหม่อีกครั้ง"
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
