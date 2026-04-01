@@ -15,6 +15,7 @@ TTS_API_KEY = os.environ.get("TTS_API_KEY")
 LOG_FILE = "sales_performance.csv"
 
 genai.configure(api_key=GENAI_API_KEY)
+# ใช้โมเดลตามที่คุณอาร์มกำหนด
 model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
 def save_to_csv(staff_name, customer_name, scores, total, passed):
@@ -89,7 +90,6 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-    <!-- 1. Consent Modal (PDPA) -->
     <div id="consent-modal" class="modal-overlay">
         <div class="modal-card">
             <h2 style="color: var(--blue)">ยินยอมให้เก็บข้อมูล (Consent)</h2>
@@ -112,7 +112,6 @@ HTML_TEMPLATE = """
         <button onclick="toggleAnalytics()" style="margin-top: 20px; background:none; border:1px solid var(--blue); color:var(--blue); padding:10px; border-radius:5px; cursor:pointer;">📊 ดูสถิติการพัฒนา (Analytics)</button>
     </div>
 
-    <!-- Analytics Section -->
     <div id="analytics-section">
         <h2 style="text-align:center; color:var(--blue)">สถิติพัฒนาการพนักงาน</h2>
         <canvas id="performanceChart"></canvas>
@@ -136,7 +135,6 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Evaluation Modal -->
     <div id="eval-modal" style="display:none;" class="modal-overlay">
         <div class="eval-content" style="background:white; padding:20px; border-radius:15px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto;">
              <div id="eval-printable-area">
@@ -149,7 +147,6 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- เผื่อไว้เป็น fallback ในกรณีที่ Web Audio API มีปัญหา -->
     <audio id="audio-player" playsinline style="display:none;"></audio>
 
     <script>
@@ -274,131 +271,6 @@ HTML_TEMPLATE = """
 
         async function showEvaluation() {
             document.getElementById('status').innerText = "⌛ กำลังประเมิน...";
-            const res = await fetch('/api/evaluate', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    history: history_log.join("\\n"),
-                    staff_name: document.getElementById('staff-name').value,
-                    customer_name: customers[activeLvl].name
-                })
-            });
-            const data = await res.json();
-            
-            const banner = document.getElementById('score-banner');
-            banner.innerText = `คะแนน: ${data.total}/85 (${data.passed ? "ผ่าน" : "ไม่ผ่าน"})`;
-            banner.style.background = data.passed ? "var(--green)" : "var(--red)";
-            
-            document.getElementById('fb-content').innerHTML = `
-                <div style="background:#f1f5f9; padding:10px; border-radius:8px; margin-bottom:10px;">
-                    <b>จุดแข็ง:</b> ${data.strengths}<br>
-                    <b>จุดอ่อน:</b> ${data.weaknesses}
-                </div>`;
-            
-            document.getElementById('eval-modal').style.display = 'flex';
-        }
-
-        async function toggleAnalytics() {
-            let sec = document.getElementById('analytics-section');
-            if(sec.style.display === 'block') {
-                sec.style.display = 'none';
-            } else {
-                sec.style.display = 'block';
-                const res = await fetch('/api/analytics');
-                const data = await res.json();
-                renderChart(data);
-            }
-        }
-
-        let myChart = null;
-        function renderChart(data) {
-            const ctx = document.getElementById('performanceChart').getContext('2d');
-            if(myChart) myChart.destroy();
-            myChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.labels,
-                    datasets: [{
-                        label: 'คะแนนรวมพนักงานล่าสุด',
-                        data: data.values,
-                        borderColor: '#1e3a8a',
-                        backgroundColor: 'rgba(30, 58, 138, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: { scales: { y: { min: 0, max: 85 } } }
-            });
-        }
-
-        var list = document.getElementById('customer-list');
-        for (var k in customers) {
-            (function(lvl){
-                var d = document.createElement('div');
-                d.className = 'card';
-                d.onclick = function(){ startApp(lvl); };
-                d.innerHTML = `<b>${customers[lvl].name}</b><br><small>${customers[lvl].desc}</small>`;
-                list.appendChild(d);
-            })(k);
-        }
-    </script>
-</body>
-</html>
-"""
-
-# --- [ส่วนที่ 4: เชื่อมต่อ API และ Backend] ---
-@app.route('/')
-def home():
-    return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    try:
-        data = request.json
-        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
-        cust = CUSTOMERS[lvl]
-        context = "\n".join(history[-5:])
-        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
-        response = model.generate_content(full_prompt)
-        reply_text = response.text.strip()
-        audio_data = get_audio_base64(reply_text, cust['voice'])
-        return jsonify({"reply": reply_text, "audio": audio_data})
-    except Exception as e:
-        return jsonify({"reply": "ขอโทษทีครับ ระบบขัดข้อง", "audio": None}), 500
-
-@app.route('/api/evaluate', methods=['POST'])
-def evaluate():
-    try:
-        data = request.json
-        history = data.get('history', '')
-        staff_name = data.get('staff_name', 'Unknown')
-        customer_name = data.get('customer_name', 'Unknown')
-        
-        eval_prompt = f"""วิเคราะห์ประวัติการขายประกันนี้ตาม QC Matrix 17 ข้อ (ข้อ 4-20) 
-        ประวัติ: {history}
-        ตอบกลับเป็น JSON เท่านั้น:
-        {{
-            "scores": [คะแนนข้อ4-20 รวม 17 ตัวเลข],
-            "strengths": "...",
-            "weaknesses": "...",
-            "improvements": "..."
-        }}"""
-        
-        response = model.generate_content(eval_prompt)
-        res_text = response.text.strip()
-        if "```json" in res_text: 
-            res_text = res_text.split("```json")[1].split("```")[0]
-        elif "```" in res_text: 
-            res_text = res_text.split("```")[1].split("```")[0]
-            
-        eval_data = json.loads(res_text)
-        scores = eval_data.get("scores", [0]*17)
-        total = sum(scores)
-        passed = total >= 50
-        
-        # บันทึกลง CSV ทันที
-        async function showEvaluation() {
-            document.getElementById('status').innerText = "⌛ กำลังประเมิน...";
             try {
                 const res = await fetch('/api/evaluate', {
                     method: 'POST',
@@ -503,7 +375,7 @@ def chat():
         lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         
-        # แก้ไข: ดึงประวัติมาทั้งหมดเพื่อให้ AI ไม่ลืมบริบท
+        # ดึงประวัติมาทั้งหมดเพื่อให้ AI ไม่ลืมบริบท
         context = "\n".join(history)
         
         full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
