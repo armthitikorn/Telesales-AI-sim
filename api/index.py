@@ -406,8 +406,9 @@ def evaluate():
         staff_name = data.get('staff_name', 'Unknown')
         customer_name = data.get('customer_name', 'Unknown')
         
+        # ปรับแก้ Prompt: บังคับให้ AI อธิบายเหตุผลอย่างละเอียดใน strengths และ weaknesses
         eval_prompt = f"""ในฐานะ QA ประเมินการขายประกันผ่านโทรศัพท์
-        จงให้คะแนนประวัติการสนทนานี้ตามเกณฑ์ 17 ข้อ (ให้คะแนนข้อละ 0 ถึง 5 คะแนน)
+        จงให้คะแนนประวัติการสนทนานี้ตามเกณฑ์ 17 ข้อ (ให้คะแนนข้อละ 0 ถึง 5 คะแนน เป็นตัวเลขจำนวนเต็มเท่านั้น)
 
         หัวข้อทั้ง 17 ข้อ:
         1. แนะนำตัว/บริษัท 2. แจ้งวัตถุประสงค์ 3. สร้าง Hook 4. Fact Finding 5. นำเสนอตรงความต้องการ
@@ -418,12 +419,13 @@ def evaluate():
         ประวัติการสนทนา: 
         {history}
         
-        คำสั่งเด็ดขาด: ตอบกลับเป็น JSON อย่างเดียวเท่านั้น ห้ามมีข้อความอื่น โครงสร้างต้องเป็นแบบนี้เท่านั้น:
+        คำสั่งเด็ดขาด: ตอบกลับเป็น JSON อย่างเดียวเท่านั้น ห้ามมีข้อความอธิบายใดๆ นอกเหนือจากใน JSON 
+        ตัวอย่างโครงสร้างที่ถูกต้อง:
         {{
-            "scores": [คะแนนข้อ1, คะแนนข้อ2, คะแนนข้อ3, คะแนนข้อ4, คะแนนข้อ5, คะแนนข้อ6, คะแนนข้อ7, คะแนนข้อ8, คะแนนข้อ9, คะแนนข้อ10, คะแนนข้อ11, คะแนนข้อ12, คะแนนข้อ13, คะแนนข้อ14, คะแนนข้อ15, คะแนนข้อ16, คะแนนข้อ17],
-            "strengths": "สรุปจุดแข็ง...",
-            "weaknesses": "สรุปจุดอ่อน...",
-            "improvements": "ข้อเสนอแนะ..."
+            "scores": [5, 4, 0, 3, 5, 2, 0, 0, 4, 5, 0, 0, 0, 0, 0, 5, 5],
+            "strengths": "อธิบายจุดแข็งที่พนักงานทำได้ดีในบทสนทนานี้ พร้อมเหตุผลประกอบอย่างละเอียด (3-4 ประโยค)",
+            "weaknesses": "อธิบายจุดอ่อนหรือสิ่งที่พนักงานพลาดไป พร้อมเหตุผลประกอบอย่างละเอียดว่าควรแก้ไขอย่างไร (3-4 ประโยค)",
+            "improvements": "ข้อเสนอแนะเพิ่มเติมเพื่อการพัฒนาและปิดการขาย..."
         }}"""
         
         response = model.generate_content(eval_prompt)
@@ -435,6 +437,7 @@ def evaluate():
         elif "```" in res_text:
             res_text = res_text.split("```")[1].split("```")[0]
             
+        import re
         match = re.search(r'\{.*\}', res_text, re.DOTALL)
         if match:
             res_text = match.group(0)
@@ -464,15 +467,16 @@ def evaluate():
         return jsonify(eval_data)
         
     except Exception as e:
+        import traceback
         traceback.print_exc()
-        # นำ Error ตรงๆ ไปโชว์ให้เห็นบนหน้าจอ จะได้รู้ทันทีว่าตรงไหนพัง
+        raw_ai_text = response.text if 'response' in locals() else 'ไม่มีข้อมูล'
         return jsonify({
             "scores": [0]*17,
             "total": 0,
             "passed": False,
-            "strengths": "เกิดข้อผิดพลาดในการรันคำสั่ง (Error)",
-            "weaknesses": "โปรแกรมหลังบ้านล้มเหลว",
-            "improvements": f"สาเหตุจากระบบ: {str(e)}"
+            "strengths": "เกิดข้อผิดพลาดในการประมวลผล JSON",
+            "weaknesses": "AI ส่งรูปแบบข้อมูลกลับมาผิดเพี้ยน",
+            "improvements": f"รายละเอียด Error: {str(e)} | ข้อความจาก AI: {raw_ai_text}"
         })
 
 @app.route('/api/analytics', methods=['GET'])
