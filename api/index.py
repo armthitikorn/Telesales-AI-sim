@@ -397,8 +397,161 @@ def evaluate():
         passed = total >= 50
         
         # บันทึกลง CSV ทันที
+        async function showEvaluation() {
+            document.getElementById('status').innerText = "⌛ กำลังประเมิน...";
+            try {
+                const res = await fetch('/api/evaluate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        history: history_log.join("\\n"),
+                        staff_name: document.getElementById('staff-name').value,
+                        customer_name: customers[activeLvl].name
+                    })
+                });
+                const data = await res.json();
+                
+                const banner = document.getElementById('score-banner');
+                banner.innerText = `คะแนน: ${data.total}/85 (${data.passed ? "ผ่านเกณฑ์ ✅" : "ไม่ผ่านเกณฑ์ ❌"})`;
+                banner.style.background = data.passed ? "var(--green)" : "var(--red)";
+                
+                // แสดงจุดแข็ง จุดอ่อน และข้อเสนอแนะ
+                document.getElementById('fb-content').innerHTML = `
+                    <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin-bottom:15px; line-height:1.6;">
+                        <b style="color:var(--green);">จุดแข็ง:</b> ${data.strengths || "-"}<br>
+                        <b style="color:var(--red);">จุดอ่อน:</b> ${data.weaknesses || "-"}<br>
+                        <b style="color:var(--blue);">ข้อเสนอแนะ:</b> ${data.improvements || "ไม่มีข้อเสนอแนะเพิ่มเติม"}
+                    </div>`;
+                
+                // สร้างพื้นที่แสดงคะแนนรายข้อ 4-20
+                let detailsHtml = "<b style='color:var(--blue);'>รายละเอียดคะแนน QC Matrix (ข้อ 4 - 20):</b><div style='display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px;'>";
+                if(data.scores && data.scores.length > 0) {
+                    data.scores.forEach((score, index) => {
+                        let itemNum = index + 4; // เริ่มที่ข้อ 4
+                        detailsHtml += `<div style="background:#f8fafc; padding:8px; border-radius:5px; border:1px solid #e2e8f0; font-size:13px;">ข้อ ${itemNum}: <b>${score}</b>/5</div>`;
+                    });
+                } else {
+                    detailsHtml += `<div>ไม่สามารถดึงข้อมูลคะแนนรายข้อได้</div>`;
+                }
+                detailsHtml += "</div>";
+                
+                document.getElementById('eval-details').innerHTML = detailsHtml;
+                document.getElementById('eval-modal').style.display = 'flex';
+            } catch (e) {
+                console.error("Evaluation Error:", e);
+                alert("เกิดข้อผิดพลาดในการประเมินผล รบกวนลองใหม่อีกครั้งครับ");
+            }
+        }
+
+        async function toggleAnalytics() {
+            let sec = document.getElementById('analytics-section');
+            if(sec.style.display === 'block') {
+                sec.style.display = 'none';
+            } else {
+                sec.style.display = 'block';
+                const res = await fetch('/api/analytics');
+                const data = await res.json();
+                renderChart(data);
+            }
+        }
+
+        let myChart = null;
+        function renderChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'คะแนนรวมพนักงานล่าสุด',
+                        data: data.values,
+                        borderColor: '#1e3a8a',
+                        backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { scales: { y: { min: 0, max: 85 } } }
+            });
+        }
+
+        var list = document.getElementById('customer-list');
+        for (var k in customers) {
+            (function(lvl){
+                var d = document.createElement('div');
+                d.className = 'card';
+                d.onclick = function(){ startApp(lvl); };
+                d.innerHTML = `<b>${customers[lvl].name}</b><br><small>${customers[lvl].desc}</small>`;
+                list.appendChild(d);
+            })(k);
+        }
+    </script>
+</body>
+</html>
+"""
+
+# --- [ส่วนที่ 4: เชื่อมต่อ API และ Backend] ---
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE, CUSTOMERS=CUSTOMERS)
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.json
+        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
+        cust = CUSTOMERS[lvl]
+        
+        # แก้ไข: ดึงประวัติมาทั้งหมดเพื่อให้ AI ไม่ลืมบริบท
+        context = "\n".join(history)
+        
+        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
+        response = model.generate_content(full_prompt)
+        reply_text = response.text.strip()
+        audio_data = get_audio_base64(reply_text, cust['voice'])
+        return jsonify({"reply": reply_text, "audio": audio_data})
+    except Exception as e:
+        return jsonify({"reply": "ขอโทษทีครับ ระบบขัดข้อง", "audio": None}), 500
+
+@app.route('/api/evaluate', methods=['POST'])
+def evaluate():
+    try:
+        data = request.json
+        history = data.get('history', '')
+        staff_name = data.get('staff_name', 'Unknown')
+        customer_name = data.get('customer_name', 'Unknown')
+        
+        eval_prompt = f"""วิเคราะห์ประวัติการขายประกันนี้ตาม QC Matrix 17 ข้อ (ข้อ 4-20) 
+        ประวัติ: {history}
+        ตอบกลับเป็น JSON เท่านั้น:
+        {{
+            "scores": [คะแนนข้อ4-20 รวม 17 ตัวเลข],
+            "strengths": "...",
+            "weaknesses": "...",
+            "improvements": "..."
+        }}"""
+        
+        response = model.generate_content(eval_prompt)
+        res_text = response.text.strip()
+        if "```json" in res_text: 
+            res_text = res_text.split("```json")[1].split("```")[0]
+        elif "```" in res_text: 
+            res_text = res_text.split("```")[1].split("```")[0]
+            
+        eval_data = json.loads(res_text)
+        
+        # ป้องกัน Error กรณี AI คืนค่ามาเป็น String
+        raw_scores = eval_data.get("scores", [0]*17)
+        scores = [int(s) for s in raw_scores]
+        
+        total = sum(scores)
+        passed = total >= 50
+        
+        # บันทึกลง CSV ทันที
         save_to_csv(staff_name, customer_name, [str(s) for s in scores], total, passed)
         
+        eval_data["scores"] = scores # อัปเดต Array กลับไปให้ฝั่ง JS ใช้งาน
         eval_data["total"] = total
         eval_data["passed"] = passed
         return jsonify(eval_data)
