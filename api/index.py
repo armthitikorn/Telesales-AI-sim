@@ -13,7 +13,6 @@ app = Flask(__name__)
 # --- [ส่วนที่ 1: ตั้งค่า API & Logging] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-# แก้ไข: ลองย้ายไปเซฟที่โฟลเดอร์ /tmp/ ซึ่งระบบ Cloud ส่วนใหญ่อนุญาตให้เขียนไฟล์ได้ชั่วคราว
 LOG_FILE = "/tmp/sales_performance.csv" 
 
 genai.configure(api_key=GENAI_API_KEY)
@@ -29,7 +28,6 @@ def save_to_csv(staff_name, customer_name, scores, total, passed):
                 writer.writerow(header)
             writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M"), staff_name, customer_name, total, "PASS" if passed else "FAIL"] + scores)
     except Exception as e:
-        # หากเขียนไฟล์ไม่ได้ (ติด Read-only) ให้ข้ามไปเลย จะได้ไม่ทำให้ระบบประเมินพัง
         print("ไม่สามารถบันทึกไฟล์ CSV ได้:", e)
 
 # --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona] ---
@@ -164,16 +162,25 @@ HTML_TEMPLATE = """
             document.getElementById('lobby').style.display = 'block';
         }
 
-var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        // --- นี่คือฟังก์ชันที่หายไป ทำให้คลิกเลือกลูกค้าไม่ได้ครับ นำกลับมาใส่ให้แล้วครับ! ---
+        function startApp(lvl) {
+            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
+            activeLvl = lvl;
+            document.getElementById('lobby').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            document.getElementById('active-name').innerText = customers[lvl].name;
+        }
+
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         var recognition = SpeechRecognition ? new SpeechRecognition() : null;
         
-        var speechTimeout; // ตัวแปรสำหรับจับเวลาหยุดพูด
-        var currentSpeech = ""; // เก็บประโยคที่พูดต่อกันยาวๆ
+        var speechTimeout; 
+        var currentSpeech = ""; 
 
         if(recognition) {
             recognition.lang = 'th-TH';
-            recognition.continuous = true; // [สำคัญ] เปิดโหมดฟังต่อเนื่อง ไม่ตัดจบเมื่อหยุดหายใจ
-            recognition.interimResults = true; // [สำคัญ] ดึงข้อความมาโชว์ระหว่างที่กำลังพูดได้เลย
+            recognition.continuous = true; 
+            recognition.interimResults = true; 
 
             recognition.onresult = (e) => {
                 if(isThinking) return;
@@ -191,7 +198,6 @@ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogniti
 
                 let inputField = document.getElementById('text-input');
                 
-                // นำข้อความที่พูดมาต่อกันและแสดงในช่อง Input แบบ Real-time
                 if (finalTranscript !== '') {
                     currentSpeech += finalTranscript + " ";
                     inputField.value = currentSpeech;
@@ -199,22 +205,19 @@ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogniti
                     inputField.value = currentSpeech + interimTranscript;
                 }
 
-                // หากระบบจับได้ว่ากำลังพูดอยู่ ให้ยกเลิกการนับเวลาส่งถอยหลัง
                 clearTimeout(speechTimeout);
 
-                // เริ่มนับเวลาใหม่ หากหยุดพูดเกิน 2.5 วินาที จะถือว่าจบประโยคและกดส่งอัตโนมัติ
                 speechTimeout = setTimeout(() => {
                     let finalMsg = inputField.value.trim();
                     if(finalMsg !== "") {
                         sendToAI(finalMsg);
                         inputField.value = "";
                         currentSpeech = "";
-                        recognition.stop(); // สั่งปิดไมค์ชั่วคราวระหว่างรอ AI คิด
+                        recognition.stop(); 
                     }
-                }, 2500); // 2500 มิลลิวินาที = 2.5 วินาที (หากต้องการให้รอนานกว่านี้ ปรับเป็น 3000 ได้ครับ)
+                }, 2500); 
             };
 
-            // เมื่อไมค์ตัดการทำงาน (AI กำลังตอบ หรือผู้ใช้กดหยุดเอง)
             recognition.onend = () => {
                 if(!isThinking) document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (แตะไมค์อีกครั้งเพื่อพูด)";
             };
@@ -233,13 +236,13 @@ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogniti
 
         function sendMsg() {
             unlockAudio(); 
-            clearTimeout(speechTimeout); // ยกเลิกการส่งอัตโนมัติ (เผื่อผู้ใช้ใจร้อนกดส่งเอง)
-            if(recognition) recognition.stop(); // ปิดไมค์
+            clearTimeout(speechTimeout); 
+            if(recognition) recognition.stop(); 
             
             let input = document.getElementById('text-input');
             if(input.value && !isThinking) sendToAI(input.value);
             input.value = "";
-            currentSpeech = ""; // รีเซ็ตประโยค
+            currentSpeech = ""; 
         }
 
         function base64ToBlobUrl(base64) {
@@ -306,7 +309,7 @@ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogniti
             let originalText = btn.innerText;
             
             btn.disabled = true;
-            btn.innerText = "⏳ กำลังประมวลผลการประเมิน (อาจใช้เวลาสักครู่)...";
+            btn.innerText = "⏳ กำลังประมวลผล... (อาจใช้เวลาสักครู่)";
             status.innerText = "ระบบกำลังให้ AI วิเคราะห์บทสนทนา...";
             
             try {
@@ -465,7 +468,6 @@ def evaluate():
         response = model.generate_content(eval_prompt)
         res_text = response.text.strip()
         
-        # ป้องกัน Markdown ปนมา
         if "```json" in res_text:
             res_text = res_text.split("```json")[1].split("```")[0]
         elif "```" in res_text:
@@ -492,7 +494,6 @@ def evaluate():
         total = sum(scores)
         passed = total >= 50
         
-        # ฟังก์ชันเซฟ CSV ได้รับการหุ้มด้วย Try-Except แล้ว จะไม่พาดึงระบบพังอีกต่อไป
         save_to_csv(staff_name, customer_name, [str(s) for s in scores], total, passed)
         
         eval_data["scores"] = scores
