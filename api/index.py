@@ -13,27 +13,31 @@ app = Flask(__name__)
 # --- [ส่วนที่ 1: ตั้งค่า API & Logging] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-LOG_FILE = "sales_performance.csv"
+# แก้ไข: ลองย้ายไปเซฟที่โฟลเดอร์ /tmp/ ซึ่งระบบ Cloud ส่วนใหญ่อนุญาตให้เขียนไฟล์ได้ชั่วคราว
+LOG_FILE = "/tmp/sales_performance.csv" 
 
 genai.configure(api_key=GENAI_API_KEY)
-
-# โมเดลตามที่คุณอาร์มกำหนด (หมายเหตุ: หาก Error ตรงนี้ แนะนำให้เปลี่ยนเป็น "gemini-1.5-flash" หรือ "gemini-2.5-flash" ครับ)
 model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
 
 def save_to_csv(staff_name, customer_name, scores, total, passed):
-    file_exists = os.path.isfile(LOG_FILE)
-    with open(LOG_FILE, mode='a', newline='', encoding='utf-8-sig') as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            header = ["Timestamp", "Staff Name", "Customer Name", "Total Score", "Status"] + [f"S_{i}" for i in range(4, 21)]
-            writer.writerow(header)
-        writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M"), staff_name, customer_name, total, "PASS" if passed else "FAIL"] + scores)
+    try:
+        file_exists = os.path.isfile(LOG_FILE)
+        with open(LOG_FILE, mode='a', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                header = ["Timestamp", "Staff Name", "Customer Name", "Total Score", "Status"] + [f"S_{i}" for i in range(4, 21)]
+                writer.writerow(header)
+            writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M"), staff_name, customer_name, total, "PASS" if passed else "FAIL"] + scores)
+    except Exception as e:
+        # หากเขียนไฟล์ไม่ได้ (ติด Read-only) ให้ข้ามไปเลย จะได้ไม่ทำให้ระบบประเมินพัง
+        print("ไม่สามารถบันทึกไฟล์ CSV ได้:", e)
 
 # --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona] ---
 COLD_CALL_RULES = """
-[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" ห้ามสอนงาน ห้ามไกด์สคริปต์ ตอบสั้นและเป็นธรรมชาติ (1-2 ประโยค)
-- หากพนักงานแนะนำตัวไม่ครบ/ไม่ชัดเจน ให้ถามแค่ "ใครนะ?", "เอาเบอร์มาจากไหน?"
-- ตัดสินใจโต้ตอบตามบทบาทชีวิตของคุณ เปิดรับประกันทุกประเภทหากพนักงานหาจุดสนใจ (Hook) เจอ
+[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" ตอบสั้นและเป็นธรรมชาติ (1-2 ประโยค) ห้ามไกด์สคริปต์
+- การระบุตัวเลข: ให้พิมพ์เป็นคำอ่านภาษาไทยเสมอ ห้ามใช้ตัวเลขอารบิก (เช่น พิมพ์ "หนึ่งหมื่นห้าพันบาท" แทน "15,000 บาท", พิมพ์ "ร้อยยี่สิบ" แทน "120") เพื่อให้ระบบเสียงอ่านได้อย่างเป็นธรรมชาติ
+- หากพนักงานแนะนำตัวไม่ครบ ให้ถามแค่ "ใครนะ?", "โทรมาจากไหน?" 
+- โต้ตอบตามบทบาทชีวิตของคุณ เปิดรับประกันทุกประเภทหากพนักงานหาจุดสนใจ (Hook) เจอ
 """
 
 CUSTOMERS = {
@@ -52,8 +56,7 @@ def get_audio_base64(text, voice_config):
     try:
         res = requests.post(url, json=payload, timeout=5)
         return res.json().get("audioContent")
-    except: 
-        return None
+    except: return None
 
 # --- [ส่วนที่ 3: HTML & UI] ---
 HTML_TEMPLATE = """
@@ -62,12 +65,12 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sales Mastery Analytics</title>
+    <title>Sales Mastery Simulator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --green: #15803d; --gold: #b45309; }
-        body { font-family: sans-serif; background: #f1f5f9; margin:0; }
+        body { font-family: sans-serif; background: #f1f5f9; margin:0; -webkit-tap-highlight-color: transparent; }
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .modal-card { background: white; padding: 25px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; }
@@ -77,67 +80,58 @@ HTML_TEMPLATE = """
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
         .header { background: var(--blue); color: white; padding: 15px; text-align: center; position: relative; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #f8fafc; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; }
+        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; line-height: 1.4; position: relative; }
         .staff { align-self: flex-end; background: var(--blue); color: white; }
         .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
         .controls { padding: 15px; background: white; border-top: 1px solid #ddd; text-align: center; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
         
-        #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .btn-view-stats { position: absolute; right: 15px; top: 15px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+        .btn-play-audio { display: block; margin-top: 8px; padding: 5px 12px; background: #cbd5e1; border: none; border-radius: 10px; font-size: 12px; cursor: pointer; }
         
-        .pdpa-text { font-size: 13px; color: #64748b; text-align: left; line-height: 1.5; margin: 15px 0; max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 8px; }
+        #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
     <div id="consent-modal" class="modal-overlay">
         <div class="modal-card">
-            <h2 style="color: var(--blue)">ยินยอมให้เก็บข้อมูล (Consent)</h2>
-            <div class="pdpa-text">
-                <b>ข้อตกลงการใช้ระบบ Simulator:</b><br>
-                1. ระบบจะเก็บข้อมูลชื่อพนักงาน และบันทึกคะแนนการประเมินเพื่อใช้ในการวิเคราะห์พัฒนาทักษะ<br>
-                2. ข้อมูลการสนทนาจะถูกประมวลผลโดย AI เพื่อสรุปผลรายบุคคล<br>
-                3. ข้อมูลทั้งหมดจะถูกจัดเก็บภายในองค์กรเพื่อการฝึกอบรมเท่านั้น<br>
-                4. ท่านสามารถแจ้งผู้ดูแลระบบหากต้องการลบข้อมูลคะแนนย้อนหลัง<br><br>
-                <i>*การกด "ยอมรับและเริ่มใช้งาน" ถือว่าท่านรับทราบและยินยอมให้ระบบบันทึกผลการทดสอบ</i>
-            </div>
-            <button onclick="acceptConsent()" style="width:100%; padding:15px; background:var(--green); color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">ยอมรับและเริ่มใช้งาน</button>
+            <h2 style="color: var(--blue)">ข้อตกลงการใช้งาน</h2>
+            <p style="font-size:14px; color:#64748b; text-align:left;">ระบบจะบันทึกเสียงและคะแนนเพื่อพัฒนาทักษะ (PDPA Compliance)</p>
+            <button onclick="acceptConsent()" style="width:100%; padding:15px; background:var(--green); color:white; border:none; border-radius:10px; font-weight:bold;">ยอมรับและเริ่มใช้งาน</button>
         </div>
     </div>
 
     <div id="lobby" style="display:none;">
-        <h1 style="color: var(--blue)">🏆 Sales Mastery Academy</h1>
-        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="margin-bottom: 20px; padding: 10px; width: 80%; border-radius: 5px; border: 1px solid #ddd;">
-        <div id="customer-list"></div>
-        <button onclick="toggleAnalytics()" style="margin-top: 20px; background:none; border:1px solid var(--blue); color:var(--blue); padding:10px; border-radius:5px; cursor:pointer;">📊 ดูสถิติการพัฒนา (Analytics)</button>
+        <h1 style="color: var(--blue)">🏆 Sales Mastery Simulator</h1>
+        <input type="text" id="staff-name" placeholder="ระบุชื่อพนักงาน" style="width:80%; padding:12px; border-radius:8px; border:1px solid #ddd;">
+        <div id="customer-list" style="margin-top:20px;"></div>
+        <button onclick="toggleAnalytics()" style="margin-top:20px; background:none; color:var(--blue); border:none; text-decoration:underline;">ดูสถิติย้อนหลัง</button>
     </div>
 
     <div id="analytics-section">
-        <h2 style="text-align:center; color:var(--blue)">สถิติพัฒนาการพนักงาน</h2>
         <canvas id="performanceChart"></canvas>
-        <button onclick="toggleAnalytics()" style="width:100%; margin-top:20px; padding:10px; border-radius:8px; border:none; background:var(--gray); color:white;">ปิดหน้าต่างสถิติ</button>
+        <button onclick="toggleAnalytics()" style="width:100%; margin-top:10px; padding:10px; border-radius:8px; border:none; background:var(--gray); color:white;">ปิด</button>
     </div>
 
     <div id="main-app">
         <div class="header">
             <h2 id="active-name" style="margin:0;">ลูกค้า</h2>
-            <button class="btn-view-stats" onclick="location.reload()">🏠 กลับหน้าหลัก</button>
+            <button onclick="location.reload()" style="position: absolute; right: 15px; top: 15px; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">🏠 กลับหน้าหลัก</button>
         </div>
         <div id="chat-box"></div>
         <div class="controls">
             <button id="mic-btn" class="btn-mic" onclick="toggleListen()">🎤</button>
-            <p id="status" style="margin: 10px 0; font-size: 14px; color: #64748b;">แตะไมค์เพื่อพูด</p>
-            <div style="display:flex; gap:5px; justify-content:center;">
-                <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." style="width:70%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;" onkeypress="if(event.key==='Enter') sendMsg()">
-                <button onclick="sendMsg()" style="padding:10px; background:var(--blue); color:white; border:none; border-radius:8px;">ส่ง</button>
+            <p id="status" style="margin: 8px 0; font-size: 13px; color: #64748b;">แตะไมค์เพื่อพูด</p>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="text-input" placeholder="พิมพ์โต้ตอบ..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #ddd;" onkeypress="if(event.key==='Enter') sendMsg()">
+                <button onclick="sendMsg()" style="padding:10px 20px; background:var(--blue); color:white; border:none; border-radius:8px;">ส่ง</button>
             </div>
-            <button id="eval-btn" style="display:none; width:100%; padding:12px; border-radius:30px; border:2px solid var(--blue); color:var(--blue); background:none; font-weight:bold; margin-top: 15px;" onclick="showEvaluation()">🏁 ประเมินผล QC Matrix</button>
+            <button id="eval-btn" style="display:none; width:100%; padding:12px; border-radius:20px; border:1px solid var(--blue); color:var(--blue); background:none; margin-top:10px; font-weight:bold;" onclick="showEvaluation()">🏁 ประเมินผล</button>
         </div>
     </div>
 
     <div id="eval-modal" style="display:none;" class="modal-overlay">
-        <div class="eval-content" style="background:white; padding:20px; border-radius:15px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto;">
+        <div style="background:white; padding:20px; border-radius:15px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto;">
              <div id="eval-printable-area">
                 <h2 style="text-align:center; color:var(--blue);">📊 รายงานผลการทดสอบ</h2>
                 <div id="score-banner" style="text-align:center; padding:15px; border-radius:10px; color:white; font-size:20px; font-weight:bold; margin-bottom:15px;"></div>
@@ -155,43 +149,17 @@ HTML_TEMPLATE = """
         var activeLvl = "";
         var isThinking = false;
         var customers = {{ CUSTOMERS | tojson | safe }};
-        var audioCtx;
-
-        function initAudio() {
-            if (!audioCtx) {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtx = new AudioContext();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        async function playAudioWebAPI(base64String) {
-            try {
-                initAudio();
-                const binaryString = window.atob(base64String);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
-                const source = audioCtx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioCtx.destination);
-                source.start(0);
-            } catch (error) {
-                var audioPlayer = document.getElementById('audio-player');
-                if (audioPlayer) {
-                    audioPlayer.src = "data:audio/mp3;base64," + base64String;
-                    audioPlayer.play().catch(e => console.error(e));
-                }
-            }
+        var audioPlayer = document.getElementById('audio-player');
+        
+        function unlockAudio() {
+            audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+            audioPlayer.play().then(() => {
+                audioPlayer.pause();
+            }).catch(e => console.log("Unlock failed", e));
         }
 
         function acceptConsent() {
-            initAudio();
+            unlockAudio(); 
             document.getElementById('consent-modal').style.display = 'none';
             document.getElementById('lobby').style.display = 'block';
         }
@@ -204,30 +172,39 @@ HTML_TEMPLATE = """
         }
 
         function toggleListen() {
-            initAudio();
+            unlockAudio(); 
             try { recognition.start(); document.getElementById('status').innerText = "🔊 กำลังฟัง..."; } catch(e){}
         }
 
         function startApp(lvl) {
-            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
+            if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อน"); return; }
             activeLvl = lvl;
             document.getElementById('lobby').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             document.getElementById('active-name').innerText = customers[lvl].name;
         }
 
-        async function sendMsg() {
-            initAudio();
+        function sendMsg() {
+            unlockAudio(); 
             let input = document.getElementById('text-input');
             if(input.value && !isThinking) sendToAI(input.value);
             input.value = "";
         }
 
+        function base64ToBlobUrl(base64) {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {type: 'audio/mp3'});
+            return URL.createObjectURL(blob);
+        }
+
         async function sendToAI(t) {
             isThinking = true;
-            document.getElementById('mic-btn').disabled = true;
             document.getElementById('status').innerText = "⌛ ลูกค้ากำลังคิด...";
-            
             appendMsg('staff', 'คุณ', t);
             history_log.push("พนักงาน: " + t);
 
@@ -239,19 +216,25 @@ HTML_TEMPLATE = """
                 });
                 const data = await res.json();
                 
-                if(data.error) {
-                    alert("เกิดข้อผิดพลาดจาก AI: " + data.reply);
-                } else {
-                    appendMsg('customer', customers[activeLvl].name, data.reply);
-                    history_log.push(customers[activeLvl].name + ": " + data.reply);
-                    if(data.audio) playAudioWebAPI(data.audio);
+                let botDiv = appendMsg('customer', customers[activeLvl].name, data.reply);
+                history_log.push(customers[activeLvl].name + ": " + data.reply);
+                
+                if(data.audio) {
+                    const blobUrl = base64ToBlobUrl(data.audio);
+                    audioPlayer.src = blobUrl;
+                    audioPlayer.play().catch(err => {
+                        let playBtn = document.createElement('button');
+                        playBtn.className = "btn-play-audio";
+                        playBtn.innerHTML = "🔊 กดเพื่อฟังเสียง";
+                        playBtn.onclick = () => { audioPlayer.play(); playBtn.remove(); };
+                        botDiv.appendChild(playBtn);
+                    });
                 }
-            } catch (e) {
+            } catch(e) {
                 alert("เกิดปัญหาการเชื่อมต่อ: " + e.message);
             }
             
             isThinking = false;
-            document.getElementById('mic-btn').disabled = false;
             document.getElementById('status').innerText = "✅ พร้อมคุยต่อ";
             document.getElementById('eval-btn').style.display = 'block';
         }
@@ -263,6 +246,7 @@ HTML_TEMPLATE = """
             d.innerHTML = `<b>${name}:</b> ${text}`;
             box.appendChild(d);
             box.scrollTop = box.scrollHeight;
+            return d;
         }
 
         async function showEvaluation() {
@@ -406,7 +390,6 @@ def evaluate():
         staff_name = data.get('staff_name', 'Unknown')
         customer_name = data.get('customer_name', 'Unknown')
         
-        # ปรับแก้ Prompt: บังคับให้ AI อธิบายเหตุผลอย่างละเอียดใน strengths และ weaknesses
         eval_prompt = f"""ในฐานะ QA ประเมินการขายประกันผ่านโทรศัพท์
         จงให้คะแนนประวัติการสนทนานี้ตามเกณฑ์ 17 ข้อ (ให้คะแนนข้อละ 0 ถึง 5 คะแนน เป็นตัวเลขจำนวนเต็มเท่านั้น)
 
@@ -437,7 +420,6 @@ def evaluate():
         elif "```" in res_text:
             res_text = res_text.split("```")[1].split("```")[0]
             
-        import re
         match = re.search(r'\{.*\}', res_text, re.DOTALL)
         if match:
             res_text = match.group(0)
@@ -459,6 +441,7 @@ def evaluate():
         total = sum(scores)
         passed = total >= 50
         
+        # ฟังก์ชันเซฟ CSV ได้รับการหุ้มด้วย Try-Except แล้ว จะไม่พาดึงระบบพังอีกต่อไป
         save_to_csv(staff_name, customer_name, [str(s) for s in scores], total, passed)
         
         eval_data["scores"] = scores
@@ -467,7 +450,6 @@ def evaluate():
         return jsonify(eval_data)
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raw_ai_text = response.text if 'response' in locals() else 'ไม่มีข้อมูล'
         return jsonify({
@@ -484,11 +466,14 @@ def get_analytics():
     labels = []
     values = []
     if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, mode='r', encoding='utf-8-sig') as f:
-            rows = list(csv.DictReader(f))
-            for row in rows[-10:]:
-                labels.append(f"{row['Staff Name']} ({row['Timestamp']})")
-                values.append(int(row['Total Score']))
+        try:
+            with open(LOG_FILE, mode='r', encoding='utf-8-sig') as f:
+                rows = list(csv.DictReader(f))
+                for row in rows[-10:]:
+                    labels.append(f"{row['Staff Name']} ({row['Timestamp']})")
+                    values.append(int(row['Total Score']))
+        except:
+            pass
     return jsonify({"labels": labels, "values": values})
 
 if __name__ == "__main__":
