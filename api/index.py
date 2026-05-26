@@ -16,7 +16,7 @@ TTS_API_KEY = os.environ.get("TTS_API_KEY")
 LOG_FILE = "/tmp/sales_performance.csv" 
 
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
+model = genai.GenerativeModel(model_name="gemini-3.1-flash-tts-preview")
 
 def save_to_csv(staff_name, customer_name, scores, total, passed):
     try:
