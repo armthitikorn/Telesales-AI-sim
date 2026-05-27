@@ -24,7 +24,7 @@ def save_to_csv(staff_name, customer_name, scores, total, passed):
         with open(LOG_FILE, mode='a', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             if not file_exists:
-                header = ["Timestamp", "Staff Name", "Customer Name", "Total Score", "Status"] + [f"S_{i}" for i in range(4, 21)]
+                header = ["Timestamp", "Staff Name", "Customer Name", "Total Score", "Status"] + [f"S_{i}" for i in range(1, 18)]
                 writer.writerow(header)
             writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M"), staff_name, customer_name, total, "PASS" if passed else "FAIL"] + scores)
     except Exception as e:
