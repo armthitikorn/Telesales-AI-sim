@@ -175,7 +175,7 @@ HTML_TEMPLATE = """
         var recognition = SpeechRecognition ? new SpeechRecognition() : null;
         
         var speechTimeout; 
-        var currentSpeech = ""; 
+        // ลบ var currentSpeech = ""; ออกไปได้เลย ไม่จำเป็นต้องใช้แล้ว
 
         if(recognition) {
             recognition.lang = 'th-TH';
@@ -188,7 +188,9 @@ HTML_TEMPLATE = """
                 let interimTranscript = '';
                 let finalTranscript = '';
 
-                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                // แก้ไข: เปลี่ยนการวนลูปจาก e.resultIndex เป็น 0 เสมอ
+                // เพื่อประกอบประโยคใหม่ทั้งหมดจากสิ่งที่เบราว์เซอร์จำได้ จะได้ไม่เกิดการเบิ้ลคำ
+                for (let i = 0; i < e.results.length; ++i) {
                     if (e.results[i].isFinal) {
                         finalTranscript += e.results[i][0].transcript;
                     } else {
@@ -197,13 +199,8 @@ HTML_TEMPLATE = """
                 }
 
                 let inputField = document.getElementById('text-input');
-                
-                if (finalTranscript !== '') {
-                    currentSpeech += finalTranscript + " ";
-                    inputField.value = currentSpeech;
-                } else {
-                    inputField.value = currentSpeech + interimTranscript;
-                }
+                // อัปเดตช่องข้อความโดยใช้ค่าที่อ่านได้โดยตรง
+                inputField.value = finalTranscript + interimTranscript;
 
                 clearTimeout(speechTimeout);
 
@@ -212,7 +209,6 @@ HTML_TEMPLATE = """
                     if(finalMsg !== "") {
                         sendToAI(finalMsg);
                         inputField.value = "";
-                        currentSpeech = "";
                         recognition.stop(); 
                     }
                 }, 2500); 
@@ -222,6 +218,27 @@ HTML_TEMPLATE = """
                 if(!isThinking) document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (แตะไมค์อีกครั้งเพื่อพูด)";
             };
         }
+
+        function toggleListen() {
+            unlockAudio();
+            document.getElementById('text-input').value = "";
+            clearTimeout(speechTimeout);
+            try { 
+                recognition.start(); 
+                document.getElementById('status').innerText = "🔊 กำลังฟัง... (หยุดพูด 2.5 วิ ระบบจะส่งข้อความอัตโนมัติ)"; 
+            } catch(e){}
+        }
+
+        function sendMsg() {
+            unlockAudio(); 
+            clearTimeout(speechTimeout); 
+            if(recognition) recognition.stop(); 
+            
+            let input = document.getElementById('text-input');
+            if(input.value && !isThinking) sendToAI(input.value);
+            input.value = "";
+        }
+
 
         function toggleListen() {
             unlockAudio();
