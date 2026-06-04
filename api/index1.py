@@ -30,47 +30,66 @@ def save_to_csv(staff_name, customer_name, scores, total, passed):
     except Exception as e:
         print("ไม่สามารถบันทึกไฟล์ CSV ได้:", e)
 
-# --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona] ---
+# --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona ที่เป็นธรรมชาติมากขึ้น] ---
 COLD_CALL_RULES = """
 [กฎเหล็กและลักษณะความเป็นมนุษย์]:
-1. คุณคือ "ลูกค้า" มนุษย์จริงๆ ที่กำลังใช้ชีวิตอยู่ ไม่ใช่ AI ตอบคำถาม
+1. คุณคือ "ลูกค้า" มนุษย์จริงๆ ที่กำลังใช้ชีวิตอยู่ ไม่ใช่ AI ตอบคำถาม ห้ามไกด์สคริปต์หรือช่วยพนักงานเด็ดขาด
 2. ตอบสั้น กระชับ เป็นธรรมชาติ (1-3 ประโยค) ตามสไตล์คนที่กำลังคุยโทรศัพท์
-3. **[สำคัญมาก - กฎเรื่องความจำ]: ให้อ่าน [ประวัติการสนทนาทั้งหมด] ด้านล่างเสมอ คุณต้องจดจำสิ่งที่พนักงานเคยบอกไว้ตั้งแต่ต้นสาย (เช่น ชื่อบริษัท, สินค้า, หรือการแนะนำตัว) "ห้ามทำเป็นลืม" และ "ห้ามถามซ้ำ" ในสิ่งที่พนักงานเคยอธิบายไปแล้วเด็ดขาด!**
-4. ห้ามทวนคำพูดของพนักงาน ห้ามพูดพร่ำเพรื่อ ห้ามพูดคำว่า "คุณ" ซ้ำไปซ้ำมา ให้โต้ตอบตรงประเด็นหรือถามกลับเพื่อพาบทสนทนาไปข้างหน้า
-5. สามารถอุทาน ใช้คำเติมเต็มช่องว่าง เช่น "เอ่อ...", "อืม...", "อ๋อครับ", "แบบว่า..." หรือแสดงอาการลังเลใจ
-6. สภาพอารมณ์: จะเปลี่ยนไปตามวิธีพูดของพนักงาน ถ้าพนักงานพูดจาตะกุกตะกักคุณจะเริ่มรำคาญ แต่ถ้าหา Hook เจอจะเริ่มเปิดใจ
-7. การระบุตัวเลข: ให้พิมพ์เป็นคำอ่านภาษาไทยเสมอ ห้ามใช้ตัวเลขอารบิกเด็ดขาด (เช่น "สองหมื่นห้าพันบาท" แทน "25,000 บาท") เพื่อให้ระบบเสียงอ่านลื่นไหล
+3. ความเป็นมนุษย์: สามารถอุทาน ใช้คำเติมเต็มช่องว่าง เช่น "เอ่อ...", "อืม...", "อ๋อครับ", "แบบว่า..." หรือแสดงอาการลังเลใจ ถอนหายใจ ถ้ายุ่งอยู่ก็บอกว่ายุ่ง
+4. สภาพอารมณ์: จะเปลี่ยนไปตามวิธีพูดของพนักงาน ถ้าพนักงานพูดจาไม่ชัดเจน ตะกุกตะกัก หรือพูดเร็วเกินไป คุณจะเริ่มรำคาญหรือถามซ้ำ แต่ถ้าพนักงานหาจุดสนใจ (Hook) หรือ Fact Finding เจอสิ่งที่ตรงกับปัญหาชีวิตคุณ คุณจะเริ่มเปิดใจฟังมากขึ้น
+5. การระบุตัวเลข: ให้พิมพ์เป็นคำอ่านภาษาไทยเสมอ ห้ามใช้ตัวเลขอารบิกเด็ดขาด (เช่น "สองหมื่นห้าพันบาท" แทน "25,000 บาท", "สี่สิบห้า" แทน "45") เพื่อให้ระบบ Text-to-Speech ออกเสียงได้ลื่นไหลที่สุด
+6. การเช็กข้อมูล: หากพนักงานแนะนำตัวไม่ครบ หรือพูดรวบรัด ให้ถามแทรกตามสัญชาตญาณ เช่น "เอ่อ เดี๋ยวคุยกับใครอยู่นะคะ?", "โทรมาจากที่ไหนนะ?"
 """
 
 CUSTOMERS = {
     "1": {
         "name": "น้องฟ้า", 
         "desc": "วัยรุ่นเริ่มทำงาน (ห่วงเงินออม/กังวลอนาคต)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุยี่สิบสามปี เพิ่งเรียนจบ ขี้เกรงใจแต่ห่วงเรื่องเงินเดือนไม่พอใช้ อยากออมเงินแต่กลัวไม่มีเงินไปเที่ยว พูดลงท้าย 'ค่ะ/นะคะ' (ถ้าเบี้ยแพงไปจะปฏิเสธ แต่เปิดใจถ้าเป็นการออมแบบยืดหยุ่น)", 
+        "prompt": COLD_CALL_RULES + (
+            "คุณคือ 'ฟ้า' อายุยี่สิบสามปี เพิ่งเรียนจบและเริ่มทำงานได้ไม่นาน มีนิสัยขี้เกรงใจ พูดจาน่ารักแต่มีความกังวลใจเรื่องเงินเดือนที่ยังไม่ค่อยพ้นเดือน "
+            "อยากออมเงินแต่กลัวไม่มีเงินไปเที่ยวหรือใช้จ่ายส่วนตัว พูดลงท้ายด้วย 'ค่ะ/นะคะ' เสมอ "
+            "ระดับความยาก: ปานกลาง (ถ้าพนักงานเสนอขายแบบเบี้ยแพงเกินไปจะปฏิเสธทันทีเพราะเงินไม่พอ แต่จะเปิดใจถ้าพูดถึงการออมเงินแบบยืดหยุ่นหรือเริ่มต้นหลักสิบต่อวัน)"
+        ), 
         "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"}
     },
     "2": {
         "name": "เฮียวิรัช", 
         "desc": "เจ้าของอู่ซ่อมรถ (เน้นความคุ้มค่า/ตรงไปตรงมา/เสียงแข็ง)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'เฮียวิรัช' อายุสี่สิบห้าปี เจ้าของอู่ซ่อมรถ ยุ่งตลอดเวลา นิสัยโผงผาง ตรงไปตรงมา ขี้ระแวง ไม่ชอบพูดอ้อมค้อม ห่วงค่ารักษาและภาษี ลงท้าย 'ครับ' (จะเสียงแข็งและตัดบทในช่วงแรก พนักงานต้องรีบเข้าประเด็น)", 
+        "prompt": COLD_CALL_RULES + (
+            "คุณคือ 'เฮียวิรัช' อายุสี่สิบห้าปี เป็นเจ้าของอู่ซ่อมรถยนต์ ยุ่งตลอดทั้งวัน นิสัยโผงผาง ตรงไปตรงมา ขี้ระแวง คุยกับคนแปลกหน้าจะเสียงแข็งนิดนึง "
+            "ไม่ชอบน้ำเสียงเฉื่อยชาหรือพูดจาอ้อมค้อม ห่วงเรื่องค่าใช้จ่ายในการดูแลรักษาตัวเองและเรื่องภาษี ลงท้ายด้วย 'ครับ' หรือ 'น่ะครับ' "
+            "ระดับความยาก: ค่อนข้างยาก (ช่วงแรกจะตัดบทและบ่นว่ายุ่งอยู่ หรือถามจี้เรื่องความคุ้มค่าทันที พนักงานต้องรีบเข้าประเด็นและมีความเป็นมืออาชีพถึงจะยอมฟัง)"
+        ), 
         "voice": {"name": "th-TH-Chirp3-HD-Achird", "gender": "MALE"}
     },
     "3": {
         "name": "ป้ามาลี", 
         "desc": "แม่ค้าตลาดสด (ขี้ระแวง/ถามเยอะ/ภาษาชาวบ้าน)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุหกสิบปี แม่ค้าตลาดสด ไม่ค่อยรู้เรื่องเทคโนโลยี ฝังใจว่าประกันเคลมยาก แต่ลึกๆ ห่วงลูกหลาน ชอบคนพูดจาไพเราะ ใช้ภาษาชาวบ้าน ลงท้าย 'จ๊ะ/นะจ๊ะ' (จะชอบถามซ้ำและเล่าเรื่องแทรก พนักงานต้องใจเย็น)", 
+        "prompt": COLD_CALL_RULES + (
+            "คุณคือ 'ป้ามาลี' อายุหกสิบปี เป็นแม่ค้าขายของในตลาดสด ไม่ค่อยรู้เรื่องเทคโนโลยีหรือศัพท์ประกันยากๆ มีความเชื่อฝังใจว่าประกันเคลมยากและชอบหลอกลวง "
+            "แต่ลึกๆ แอบห่วงว่าถ้าเป็นอะไรไปจะเป็นภาระลูกหลาน หรืออยากมีเงินก้อนเล็กๆ ทิ้งไว้ให้ ชอบคนพูดจาไพเราะ อ่อนน้อมถ่อมตน พูดภาษาชาวบ้านๆ ลงท้ายด้วย 'จ๊ะ/นะจ๊ะ' "
+            "ระดับความยาก: ปานกลางค่อนไปทางยาก (จะชอบถามซ้ำๆ และเล่าเรื่องนู้นเรื่องนี้แทรก พนักงานต้องใจเย็นมากๆ และห้ามใช้ศัพท์ประกันที่เข้าใจยาก)"
+        ), 
         "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"}
     },
     "4": {
         "name": "คุณแอน", 
         "desc": "คุณแม่ลูกอ่อน (อ่อนโยน/ปกป้องลูก/กังวลเรื่องสุขภาพ)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' อายุสามสิบสองปี คุณแม่ลูกอ่อน สนใจทุกอย่างที่ทำให้ลูกปลอดภัย กังวลเรื่องโรคระบาดในเด็กและค่าหมอ พูดจานุ่มนวล ลงท้าย 'ค่ะ' (จะสนใจมากถ้าเน้นเรื่องสุขภาพลูก แต่ไม่ค่อยสนเรื่องออมเงินตัวเอง)", 
+        "prompt": COLD_CALL_RULES + (
+            "คุณคือ 'แอน' อายุสามสิบสองปี เป็นคุณแม่ที่มีลูกเล็ก อายุขวบกว่าๆ อารมณ์อ่อนไหวง่าย สนใจและยอมจ่ายทุกอย่างถ้าสิ่งนั้นทำให้ลูกปลอดภัยหรือมีสวัสดิการรักษาพยาบาลที่ดี "
+            "กังวลเรื่องโรคระบาดในเด็กและค่าหมอที่แพงหูฉี่ พูดจาสุภาพ นุ่มนวล ลงท้ายด้วย 'ค่ะ' "
+            "ระดับความยาก: ง่ายค่อนไปทางปานกลาง (ถ้าพนักงานเปิดบทสนทนาด้วยการถามถึงเรื่องลูกหรือความคุ้มครองสุขภาพเด็กจะหันมาสนใจทันที แต่ถ้าเน้นขายออมเงินของตัวเองจะไม่ค่อยสนใจ)"
+        ), 
         "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"}
     },
     "5": {
         "name": "คุณอัครเดช", 
         "desc": "นักบริหารและนักลงทุน (เวลาน้อย/ฉลาด/เน้นผลประโยชน์สูง)", 
-        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' อายุห้า십ห้าปี นักธุรกิจ ทันเกม เวลามีค่ามาก ไม่ชอบฟังน้ำๆ มองหาการลดหย่อนภาษีและการส่งต่อมรดก พูดจานิ่งๆ สุขุม ลงท้าย 'ครับ' (ถ้าพนักงานพูดตามสคริปต์แข็งๆ จะวางสาย ต้องนำเสนอแบบมืออาชีพสุดๆ)", 
+        "prompt": COLD_CALL_RULES + (
+            "คุณคือ 'อัครเดช' อายุห้า십ห้าปี นักธุรกิจและนักลงทุนรายใหญ่ เป็นคนฉลาด ทันเกม พนักงานพูดอะไรมาเขารู้ทันหมด เวลามีค่ามาก ไม่ชอบฟังน้ำน้ำ ชอบเนื้อๆ "
+            "มองหาการลดหย่อนภาษีระดับสูงและการส่งต่อมรดกให้ทายาทแบบไม่ต้องเสียภาษีซ้ำซ้อน พูดจานิ่งๆ สุขุม เป็นผู้ใหญ่ ลงท้ายด้วย 'ครับ' "
+            "ระดับความยาก: ยาก (ถ้าพนักงานพูดบทพูดเดิมๆ แบบนกแก้วนกขุนทองจะถูกปฏิเทศและวางสายทันที พนักงานต้องนำเสนอโครงสร้างผลประโยชน์ที่เห็นภาพชัดเจนและเป็นมืออาชีพขั้นสุด)"
+        ), 
         "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"}
     }
 }
@@ -98,8 +117,10 @@ HTML_TEMPLATE = """
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --green: #15803d; --gold: #b45309; }
         body { font-family: sans-serif; background: #f1f5f9; margin:0; -webkit-tap-highlight-color: transparent; }
+        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .modal-card { background: white; padding: 25px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; }
+        
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
         .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
@@ -110,7 +131,9 @@ HTML_TEMPLATE = """
         .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
         .controls { padding: 15px; background: white; border-top: 1px solid #ddd; text-align: center; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
+        
         .btn-play-audio { display: block; margin-top: 8px; padding: 5px 12px; background: #cbd5e1; border: none; border-radius: 10px; font-size: 12px; cursor: pointer; }
+        
         #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
@@ -187,6 +210,7 @@ HTML_TEMPLATE = """
             document.getElementById('lobby').style.display = 'block';
         }
 
+        // --- นี่คือฟังก์ชันที่หายไป ทำให้คลิกเลือกลูกค้าไม่ได้ครับ นำกลับมาใส่ให้แล้วครับ! ---
         function startApp(lvl) {
             if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
             activeLvl = lvl;
@@ -197,7 +221,9 @@ HTML_TEMPLATE = """
 
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         var recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        
         var speechTimeout; 
+        // ลบ var currentSpeech = ""; ออกไปได้เลย ไม่จำเป็นต้องใช้แล้ว
 
         if(recognition) {
             recognition.lang = 'th-TH';
@@ -207,41 +233,31 @@ HTML_TEMPLATE = """
             recognition.onresult = (e) => {
                 if(isThinking) return;
 
-                let finalTranscript = '';
                 let interimTranscript = '';
+                let finalTranscript = '';
 
-                // ระบบกรองคำซ้ำ (De-duplication Algorithm) ป้องกันบักการสะสมคำบนมือถือ
+                // แก้ไข: เปลี่ยนการวนลูปจาก e.resultIndex เป็น 0 เสมอ
+                // เพื่อประกอบประโยคใหม่ทั้งหมดจากสิ่งที่เบราว์เซอร์จำได้ จะได้ไม่เกิดการเบิ้ลคำ
                 for (let i = 0; i < e.results.length; ++i) {
-                    let chunk = e.results[i][0].transcript;
                     if (e.results[i].isFinal) {
-                        let cleanChunk = chunk.trim();
-                        if (cleanChunk) {
-                            // 1. ถ้าคำที่ส่งมาซ้ำเป๊ะๆ กับส่วนท้ายของประโยคเดิม ให้ข้ามไป
-                            if (finalTranscript.trim().endsWith(cleanChunk)) {
-                                continue;
-                            }
-                            // 2. ถ้าคำที่ส่งมา ยาวกว่าและครอบคลุมประโยคเดิมทั้งหมด (บั๊กการสะสมประโยค) ให้แทนที่
-                            else if (cleanChunk.startsWith(finalTranscript.trim()) && finalTranscript.trim() !== "") {
-                                finalTranscript = cleanChunk + " ";
-                            }
-                            // 3. ถ้าเป็นคำใหม่ต่อท้ายปกติ
-                            else {
-                                finalTranscript += chunk + " ";
-                            }
-                        }
+                        finalTranscript += e.results[i][0].transcript;
                     } else {
-                        interimTranscript += chunk;
+                        interimTranscript += e.results[i][0].transcript;
                     }
                 }
 
                 let inputField = document.getElementById('text-input');
+                // อัปเดตช่องข้อความโดยใช้ค่าที่อ่านได้โดยตรง
                 inputField.value = finalTranscript + interimTranscript;
 
                 clearTimeout(speechTimeout);
+
                 speechTimeout = setTimeout(() => {
                     let finalMsg = inputField.value.trim();
-                    if(finalMsg !== "" && !isThinking) {
-                        sendMsg(); 
+                    if(finalMsg !== "") {
+                        sendToAI(finalMsg);
+                        inputField.value = "";
+                        recognition.stop(); 
                     }
                 }, 2500); 
             };
@@ -267,11 +283,31 @@ HTML_TEMPLATE = """
             if(recognition) recognition.stop(); 
             
             let input = document.getElementById('text-input');
-            let msgText = input.value.trim();
-            if(msgText && !isThinking) {
-                sendToAI(msgText);
-            }
+            if(input.value && !isThinking) sendToAI(input.value);
             input.value = "";
+        }
+
+
+        function toggleListen() {
+            unlockAudio();
+            currentSpeech = ""; 
+            document.getElementById('text-input').value = "";
+            clearTimeout(speechTimeout);
+            try { 
+                recognition.start(); 
+                document.getElementById('status').innerText = "🔊 กำลังฟัง... (หยุดพูด 2.5 วิ ระบบจะส่งข้อความอัตโนมัติ)"; 
+            } catch(e){}
+        }
+
+        function sendMsg() {
+            unlockAudio(); 
+            clearTimeout(speechTimeout); 
+            if(recognition) recognition.stop(); 
+            
+            let input = document.getElementById('text-input');
+            if(input.value && !isThinking) sendToAI(input.value);
+            input.value = "";
+            currentSpeech = ""; 
         }
 
         function base64ToBlobUrl(base64) {
@@ -295,7 +331,7 @@ HTML_TEMPLATE = """
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({lvl: activeLvl, history: history_log})
+                    body: JSON.stringify({message: t, lvl: activeLvl, history: history_log})
                 });
                 const data = await res.json();
                 
@@ -453,12 +489,10 @@ def home():
 def chat():
     try:
         data = request.json
-        lvl, history = data.get('lvl'), data.get('history', [])
+        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         context = "\n".join(history)
-        
-        full_prompt = f"{cust['prompt']}\n\n[ประวัติการสนทนาทั้งหมด]:\n{context}\n\n[คำสั่ง]: จากประวัติการสนทนาด้านบน จงตอบกลับข้อความล่าสุดของพนักงานในฐานะลูกค้าแบบสั้นๆ:"
-        
+        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
         response = model.generate_content(full_prompt)
         reply_text = response.text.strip()
         audio_data = get_audio_base64(reply_text, cust['voice'])
@@ -475,14 +509,8 @@ def evaluate():
         staff_name = data.get('staff_name', 'Unknown')
         customer_name = data.get('customer_name', 'Unknown')
         
-        eval_prompt = f"""ในฐานะ QA ผู้ตรวจประเมินคุณภาพการขาย (QC Matrix) ที่มีความเป็นกลาง เป็นมืออาชีพ และประเมินตามความเป็นจริงอย่างเคร่งครัด
+        eval_prompt = f"""ในฐานะ QA ประเมินการขายประกันผ่านโทรศัพท์
         จงให้คะแนนประวัติการสนทนานี้ตามเกณฑ์ 17 ข้อ (ให้คะแนนข้อละ 0 ถึง 5 คะแนน เป็นตัวเลขจำนวนเต็มเท่านั้น)
-
-        [กฎการประเมิน]:
-        - ประเมินตามหลักฐานใน 'ประวัติการสนทนา' เท่านั้น ไม่อวยพนักงาน และไม่กดคะแนนจนเกินไป
-        - ข้อไหนพนักงาน "ไม่ได้พูดเลย" ให้ 0 คะแนนทันที
-        - ข้อไหนพนักงาน "พยายามพูดแต่ไม่ครบถ้วน หรือทำได้ไม่ค่อยดี" ให้ 1-4 คะแนนตามสัดส่วนความพยายาม
-        - ข้อไหนพนักงาน "ทำได้ดีและสมบูรณ์" ให้ 5 คะแนน
 
         หัวข้อทั้ง 17 ข้อ:
         1. แนะนำตัว/บริษัท 2. แจ้งวัตถุประสงค์ 3. สร้าง Hook 4. Fact Finding 5. นำเสนอตรงความต้องการ
@@ -497,20 +525,18 @@ def evaluate():
         ตัวอย่างโครงสร้างที่ถูกต้อง:
         {{
             "scores": [5, 4, 0, 3, 5, 2, 0, 0, 4, 5, 0, 0, 0, 0, 0, 5, 5],
-            "strengths": "วิจารณ์ตามจริง: ระบุจุดแข็งที่พนักงานทำได้ดีในบทสนทนานี้ เช่น การหานีดเจอ หรือความสุภาพ (3-4 ประโยค)",
-            "weaknesses": "วิจารณ์ตามจริง: ระบุจุดอ่อนหรือสิ่งที่พนักงานพลาดไปอย่างตรงไปตรงมา เช่น ลืมแจ้งสิทธิ์ ข้ามขั้นตอน (3-4 ประโยค)",
-            "improvements": "ข้อเสนอแนะแบบมืออาชีพ: สิ่งที่ควรปรับปรุงในสายถัดไปเพื่อให้เป็นนักขายที่เก่งขึ้น"
+            "strengths": "อธิบายจุดแข็งที่พนักงานทำได้ดีในบทสนทนานี้ พร้อมเหตุผลประกอบอย่างละเอียด (3-4 ประโยค)",
+            "weaknesses": "อธิบายจุดอ่อนหรือสิ่งที่พนักงานพลาดไป พร้อมเหตุผลประกอบอย่างละเอียดว่าควรแก้ไขอย่างไร (3-4 ประโยค)",
+            "improvements": "ข้อเสนอแนะเพิ่มเติมเพื่อการพัฒนาและปิดการขาย..."
         }}"""
         
         response = model.generate_content(eval_prompt)
         res_text = response.text.strip()
         
         if "```json" in res_text:
-            res_text = res_text.split("
-```json")[1].split("```")[0]
+            res_text = res_text.split("```json")[1].split("```")[0]
         elif "```" in res_text:
-            res_text = res_text.split("
-```")[1].split("```")[0]
+            res_text = res_text.split("```")[1].split("```")[0]
             
         match = re.search(r'\{.*\}', res_text, re.DOTALL)
         if match:
