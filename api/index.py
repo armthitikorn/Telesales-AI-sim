@@ -174,8 +174,6 @@ HTML_TEMPLATE = """
         var customers = {{ CUSTOMERS | tojson | safe }};
         var audioPlayer = document.getElementById('audio-player');
         
-        var currentFinalText = ""; 
-
         function unlockAudio() {
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
             audioPlayer.play().then(() => {
@@ -209,23 +207,35 @@ HTML_TEMPLATE = """
             recognition.onresult = (e) => {
                 if(isThinking) return;
 
+                let finalTranscript = '';
                 let interimTranscript = '';
-                let newFinalText = '';
 
-                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                // ระบบกรองคำซ้ำ (De-duplication Algorithm) ป้องกันบักการสะสมคำบนมือถือ
+                for (let i = 0; i < e.results.length; ++i) {
+                    let chunk = e.results[i][0].transcript;
                     if (e.results[i].isFinal) {
-                        newFinalText += e.results[i][0].transcript;
+                        let cleanChunk = chunk.trim();
+                        if (cleanChunk) {
+                            // 1. ถ้าคำที่ส่งมาซ้ำเป๊ะๆ กับส่วนท้ายของประโยคเดิม ให้ข้ามไป
+                            if (finalTranscript.trim().endsWith(cleanChunk)) {
+                                continue;
+                            }
+                            // 2. ถ้าคำที่ส่งมา ยาวกว่าและครอบคลุมประโยคเดิมทั้งหมด (บั๊กการสะสมประโยค) ให้แทนที่
+                            else if (cleanChunk.startsWith(finalTranscript.trim()) && finalTranscript.trim() !== "") {
+                                finalTranscript = cleanChunk + " ";
+                            }
+                            // 3. ถ้าเป็นคำใหม่ต่อท้ายปกติ
+                            else {
+                                finalTranscript += chunk + " ";
+                            }
+                        }
                     } else {
-                        interimTranscript += e.results[i][0].transcript;
+                        interimTranscript += chunk;
                     }
                 }
 
-                if (newFinalText !== '') {
-                    currentFinalText += newFinalText;
-                }
-
                 let inputField = document.getElementById('text-input');
-                inputField.value = currentFinalText + interimTranscript;
+                inputField.value = finalTranscript + interimTranscript;
 
                 clearTimeout(speechTimeout);
                 speechTimeout = setTimeout(() => {
@@ -244,7 +254,6 @@ HTML_TEMPLATE = """
         function toggleListen() {
             unlockAudio();
             document.getElementById('text-input').value = "";
-            currentFinalText = ""; 
             clearTimeout(speechTimeout);
             try { 
                 recognition.start(); 
@@ -263,7 +272,6 @@ HTML_TEMPLATE = """
                 sendToAI(msgText);
             }
             input.value = "";
-            currentFinalText = ""; 
         }
 
         function base64ToBlobUrl(base64) {
@@ -445,12 +453,10 @@ def home():
 def chat():
     try:
         data = request.json
-        # ปรับการดึงข้อมูลเพื่อไม่ให้มีข้อความพนักงานซ้ำซ้อนใน Prompt
         lvl, history = data.get('lvl'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         context = "\n".join(history)
         
-        # จัดโครงสร้าง Prompt ใหม่ ให้ AI โฟกัสกับ History ทั้งหมดก่อนตอบ
         full_prompt = f"{cust['prompt']}\n\n[ประวัติการสนทนาทั้งหมด]:\n{context}\n\n[คำสั่ง]: จากประวัติการสนทนาด้านบน จงตอบกลับข้อความล่าสุดของพนักงานในฐานะลูกค้าแบบสั้นๆ:"
         
         response = model.generate_content(full_prompt)
@@ -500,9 +506,11 @@ def evaluate():
         res_text = response.text.strip()
         
         if "```json" in res_text:
-            res_text = res_text.split("```json")[1].split("```")[0]
+            res_text = res_text.split("
+```json")[1].split("```")[0]
         elif "```" in res_text:
-            res_text = res_text.split("```")[1].split("```")[0]
+            res_text = res_text.split("
+```")[1].split("```")[0]
             
         match = re.search(r'\{.*\}', res_text, re.DOTALL)
         if match:
