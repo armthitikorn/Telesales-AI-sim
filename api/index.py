@@ -32,18 +32,47 @@ def save_to_csv(staff_name, customer_name, scores, total, passed):
 
 # --- [ส่วนที่ 2: ลอจิกการโต้ตอบ & Persona] ---
 COLD_CALL_RULES = """
-[คำสั่งเด็ดขาด]: คุณคือ "ลูกค้า" ตอบสั้นและเป็นธรรมชาติ (1-2 ประโยค) ห้ามไกด์สคริปต์
-- การระบุตัวเลข: ให้พิมพ์เป็นคำอ่านภาษาไทยเสมอ ห้ามใช้ตัวเลขอารบิก (เช่น พิมพ์ "หนึ่งหมื่นห้าพันบาท" แทน "15,000 บาท", พิมพ์ "ร้อยยี่สิบ" แทน "120") เพื่อให้ระบบเสียงอ่านได้อย่างเป็นธรรมชาติ
-- หากพนักงานแนะนำตัวไม่ครบ ให้ถามแค่ "ใครนะ?", "โทรมาจากไหน?" 
-- โต้ตอบตามบทบาทชีวิตของคุณ เปิดรับประกันทุกประเภทหากพนักงานหาจุดสนใจ (Hook) เจอ
+[กฎเหล็กและลักษณะความเป็นมนุษย์]:
+1. คุณคือ "ลูกค้า" มนุษย์จริงๆ ที่กำลังใช้ชีวิตอยู่ ไม่ใช่ AI ตอบคำถาม
+2. ตอบสั้น กระชับ เป็นธรรมชาติ (1-3 ประโยค) ตามสไตล์คนที่กำลังคุยโทรศัพท์
+3. **[สำคัญมาก - กฎเรื่องความจำ]: ให้อ่าน [ประวัติการสนทนาทั้งหมด] ด้านล่างเสมอ คุณต้องจดจำสิ่งที่พนักงานเคยบอกไว้ตั้งแต่ต้นสาย (เช่น ชื่อบริษัท, สินค้า, หรือการแนะนำตัว) "ห้ามทำเป็นลืม" และ "ห้ามถามซ้ำ" ในสิ่งที่พนักงานเคยอธิบายไปแล้วเด็ดขาด!**
+4. ห้ามทวนคำพูดของพนักงาน ห้ามพูดพร่ำเพรื่อ ห้ามพูดคำว่า "คุณ" ซ้ำไปซ้ำมา ให้โต้ตอบตรงประเด็นหรือถามกลับเพื่อพาบทสนทนาไปข้างหน้า
+5. สามารถอุทาน ใช้คำเติมเต็มช่องว่าง เช่น "เอ่อ...", "อืม...", "อ๋อครับ", "แบบว่า..." หรือแสดงอาการลังเลใจ
+6. สภาพอารมณ์: จะเปลี่ยนไปตามวิธีพูดของพนักงาน ถ้าพนักงานพูดจาตะกุกตะกักคุณจะเริ่มรำคาญ แต่ถ้าหา Hook เจอจะเริ่มเปิดใจ
+7. การระบุตัวเลข: ให้พิมพ์เป็นคำอ่านภาษาไทยเสมอ ห้ามใช้ตัวเลขอารบิกเด็ดขาด (เช่น "สองหมื่นห้าพันบาท" แทน "25,000 บาท") เพื่อให้ระบบเสียงอ่านลื่นไหล
 """
 
 CUSTOMERS = {
-    "1": {"name": "น้องฟ้า", "desc": "วัยรุ่นเริ่มทำงาน (ห่วงเงินออม)", "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุ 23 ปี ห่วงเรื่องเงินเดือนที่ไม่พอใช้ ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"}},
-    "2": {"name": "เฮียวิรัช", "desc": "เจ้าของอู่ (ห่วงค่ารักษา/ภาษี)", "prompt": COLD_CALL_RULES + "คุณคือ 'วิรัช' อายุ 45 ปี ดุและเขี้ยวเรื่องความคุ้มค่า ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Chirp3-HD-Achird", "gender": "MALE"}},
-    "3": {"name": "ป้ามาลี", "desc": "แม่ค้าตลาด (ห่วงมรดก/การเคลม)", "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุ 60 ปี ไม่เชื่อใจประกัน ถามคำถามชาวบ้านๆ ลงท้าย 'จ๊ะ'", "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"}},
-    "4": {"name": "คุณแอน", "desc": "แม่ลูกอ่อน (ห่วงสวัสดิการลูก)", "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' อายุ 32 ปี สนใจทุกอย่างที่ทำให้ลูกปลอดภัย ลงท้าย 'ค่ะ'", "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"}},
-    "5": {"name": "คุณอัครเดช", "desc": "นักลงทุน (ห่วงภาษี/ส่งต่อทรัพย์สิน)", "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' อายุ 55 ปี เวลาน้อยและชอบความเป็นมืออาชีพ ลงท้าย 'ครับ'", "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"}}
+    "1": {
+        "name": "น้องฟ้า", 
+        "desc": "วัยรุ่นเริ่มทำงาน (ห่วงเงินออม/กังวลอนาคต)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ฟ้า' อายุยี่สิบสามปี เพิ่งเรียนจบ ขี้เกรงใจแต่ห่วงเรื่องเงินเดือนไม่พอใช้ อยากออมเงินแต่กลัวไม่มีเงินไปเที่ยว พูดลงท้าย 'ค่ะ/นะคะ' (ถ้าเบี้ยแพงไปจะปฏิเสธ แต่เปิดใจถ้าเป็นการออมแบบยืดหยุ่น)", 
+        "voice": {"name": "th-TH-Chirp3-HD-Aoede", "gender": "FEMALE"}
+    },
+    "2": {
+        "name": "เฮียวิรัช", 
+        "desc": "เจ้าของอู่ซ่อมรถ (เน้นความคุ้มค่า/ตรงไปตรงมา/เสียงแข็ง)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'เฮียวิรัช' อายุสี่สิบห้าปี เจ้าของอู่ซ่อมรถ ยุ่งตลอดเวลา นิสัยโผงผาง ตรงไปตรงมา ขี้ระแวง ไม่ชอบพูดอ้อมค้อม ห่วงค่ารักษาและภาษี ลงท้าย 'ครับ' (จะเสียงแข็งและตัดบทในช่วงแรก พนักงานต้องรีบเข้าประเด็น)", 
+        "voice": {"name": "th-TH-Chirp3-HD-Achird", "gender": "MALE"}
+    },
+    "3": {
+        "name": "ป้ามาลี", 
+        "desc": "แม่ค้าตลาดสด (ขี้ระแวง/ถามเยอะ/ภาษาชาวบ้าน)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'ป้ามาลี' อายุหกสิบปี แม่ค้าตลาดสด ไม่ค่อยรู้เรื่องเทคโนโลยี ฝังใจว่าประกันเคลมยาก แต่ลึกๆ ห่วงลูกหลาน ชอบคนพูดจาไพเราะ ใช้ภาษาชาวบ้าน ลงท้าย 'จ๊ะ/นะจ๊ะ' (จะชอบถามซ้ำและเล่าเรื่องแทรก พนักงานต้องใจเย็น)", 
+        "voice": {"name": "th-TH-Chirp3-HD-Kore", "gender": "FEMALE"}
+    },
+    "4": {
+        "name": "คุณแอน", 
+        "desc": "คุณแม่ลูกอ่อน (อ่อนโยน/ปกป้องลูก/กังวลเรื่องสุขภาพ)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'แอน' อายุสามสิบสองปี คุณแม่ลูกอ่อน สนใจทุกอย่างที่ทำให้ลูกปลอดภัย กังวลเรื่องโรคระบาดในเด็กและค่าหมอ พูดจานุ่มนวล ลงท้าย 'ค่ะ' (จะสนใจมากถ้าเน้นเรื่องสุขภาพลูก แต่ไม่ค่อยสนเรื่องออมเงินตัวเอง)", 
+        "voice": {"name": "th-TH-Chirp3-HD-Leda", "gender": "FEMALE"}
+    },
+    "5": {
+        "name": "คุณอัครเดช", 
+        "desc": "นักบริหารและนักลงทุน (เวลาน้อย/ฉลาด/เน้นผลประโยชน์สูง)", 
+        "prompt": COLD_CALL_RULES + "คุณคือ 'อัครเดช' อายุห้า십ห้าปี นักธุรกิจ ทันเกม เวลามีค่ามาก ไม่ชอบฟังน้ำๆ มองหาการลดหย่อนภาษีและการส่งต่อมรดก พูดจานิ่งๆ สุขุม ลงท้าย 'ครับ' (ถ้าพนักงานพูดตามสคริปต์แข็งๆ จะวางสาย ต้องนำเสนอแบบมืออาชีพสุดๆ)", 
+        "voice": {"name": "th-TH-Chirp3-HD-Charon", "gender": "MALE"}
+    }
 }
 
 def get_audio_base64(text, voice_config):
@@ -69,10 +98,8 @@ HTML_TEMPLATE = """
     <style>
         :root { --blue: #1e3a8a; --red: #be123c; --gray: #94a3b8; --green: #15803d; --gold: #b45309; }
         body { font-family: sans-serif; background: #f1f5f9; margin:0; -webkit-tap-highlight-color: transparent; }
-        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 2000; }
         .modal-card { background: white; padding: 25px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center; }
-        
         #lobby { padding: 20px; text-align: center; max-width: 600px; margin: auto; }
         .card { background: white; padding: 15px; margin: 10px 0; border-radius: 12px; border-left: 8px solid var(--blue); text-align: left; cursor: pointer; }
         #main-app { display: none; flex-direction: column; height: 100vh; background: white; }
@@ -83,9 +110,7 @@ HTML_TEMPLATE = """
         .customer { align-self: flex-start; background: #e2e8f0; color: #1e293b; }
         .controls { padding: 15px; background: white; border-top: 1px solid #ddd; text-align: center; }
         .btn-mic { width: 70px; height: 70px; border-radius: 50%; border: none; background: var(--red); color: white; font-size: 30px; cursor: pointer; }
-        
         .btn-play-audio { display: block; margin-top: 8px; padding: 5px 12px; background: #cbd5e1; border: none; border-radius: 10px; font-size: 12px; cursor: pointer; }
-        
         #analytics-section { display:none; padding: 20px; background: white; border-radius: 15px; margin: 20px auto; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
@@ -149,6 +174,8 @@ HTML_TEMPLATE = """
         var customers = {{ CUSTOMERS | tojson | safe }};
         var audioPlayer = document.getElementById('audio-player');
         
+        var currentFinalText = ""; 
+
         function unlockAudio() {
             audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
             audioPlayer.play().then(() => {
@@ -172,7 +199,6 @@ HTML_TEMPLATE = """
 
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         var recognition = SpeechRecognition ? new SpeechRecognition() : null;
-        
         var speechTimeout; 
 
         if(recognition) {
@@ -184,27 +210,28 @@ HTML_TEMPLATE = """
                 if(isThinking) return;
 
                 let interimTranscript = '';
-                let finalTranscript = '';
+                let newFinalText = '';
 
-                for (let i = 0; i < e.results.length; ++i) {
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
                     if (e.results[i].isFinal) {
-                        finalTranscript += e.results[i][0].transcript;
+                        newFinalText += e.results[i][0].transcript;
                     } else {
                         interimTranscript += e.results[i][0].transcript;
                     }
                 }
 
+                if (newFinalText !== '') {
+                    currentFinalText += newFinalText;
+                }
+
                 let inputField = document.getElementById('text-input');
-                inputField.value = finalTranscript + interimTranscript;
+                inputField.value = currentFinalText + interimTranscript;
 
                 clearTimeout(speechTimeout);
-
                 speechTimeout = setTimeout(() => {
                     let finalMsg = inputField.value.trim();
-                    if(finalMsg !== "") {
-                        sendToAI(finalMsg);
-                        inputField.value = "";
-                        recognition.stop(); 
+                    if(finalMsg !== "" && !isThinking) {
+                        sendMsg(); 
                     }
                 }, 2500); 
             };
@@ -217,6 +244,7 @@ HTML_TEMPLATE = """
         function toggleListen() {
             unlockAudio();
             document.getElementById('text-input').value = "";
+            currentFinalText = ""; 
             clearTimeout(speechTimeout);
             try { 
                 recognition.start(); 
@@ -230,8 +258,12 @@ HTML_TEMPLATE = """
             if(recognition) recognition.stop(); 
             
             let input = document.getElementById('text-input');
-            if(input.value && !isThinking) sendToAI(input.value);
+            let msgText = input.value.trim();
+            if(msgText && !isThinking) {
+                sendToAI(msgText);
+            }
             input.value = "";
+            currentFinalText = ""; 
         }
 
         function base64ToBlobUrl(base64) {
@@ -255,7 +287,7 @@ HTML_TEMPLATE = """
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: t, lvl: activeLvl, history: history_log})
+                    body: JSON.stringify({lvl: activeLvl, history: history_log})
                 });
                 const data = await res.json();
                 
@@ -413,10 +445,14 @@ def home():
 def chat():
     try:
         data = request.json
-        lvl, user_msg, history = data.get('lvl'), data.get('message'), data.get('history', [])
+        # ปรับการดึงข้อมูลเพื่อไม่ให้มีข้อความพนักงานซ้ำซ้อนใน Prompt
+        lvl, history = data.get('lvl'), data.get('history', [])
         cust = CUSTOMERS[lvl]
         context = "\n".join(history)
-        full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
+        
+        # จัดโครงสร้าง Prompt ใหม่ ให้ AI โฟกัสกับ History ทั้งหมดก่อนตอบ
+        full_prompt = f"{cust['prompt']}\n\n[ประวัติการสนทนาทั้งหมด]:\n{context}\n\n[คำสั่ง]: จากประวัติการสนทนาด้านบน จงตอบกลับข้อความล่าสุดของพนักงานในฐานะลูกค้าแบบสั้นๆ:"
+        
         response = model.generate_content(full_prompt)
         reply_text = response.text.strip()
         audio_data = get_audio_base64(reply_text, cust['voice'])
@@ -433,8 +469,14 @@ def evaluate():
         staff_name = data.get('staff_name', 'Unknown')
         customer_name = data.get('customer_name', 'Unknown')
         
-        eval_prompt = f"""ในฐานะ QA ประเมินการขายประกันผ่านโทรศัพท์
+        eval_prompt = f"""ในฐานะ QA ผู้ตรวจประเมินคุณภาพการขาย (QC Matrix) ที่มีความเป็นกลาง เป็นมืออาชีพ และประเมินตามความเป็นจริงอย่างเคร่งครัด
         จงให้คะแนนประวัติการสนทนานี้ตามเกณฑ์ 17 ข้อ (ให้คะแนนข้อละ 0 ถึง 5 คะแนน เป็นตัวเลขจำนวนเต็มเท่านั้น)
+
+        [กฎการประเมิน]:
+        - ประเมินตามหลักฐานใน 'ประวัติการสนทนา' เท่านั้น ไม่อวยพนักงาน และไม่กดคะแนนจนเกินไป
+        - ข้อไหนพนักงาน "ไม่ได้พูดเลย" ให้ 0 คะแนนทันที
+        - ข้อไหนพนักงาน "พยายามพูดแต่ไม่ครบถ้วน หรือทำได้ไม่ค่อยดี" ให้ 1-4 คะแนนตามสัดส่วนความพยายาม
+        - ข้อไหนพนักงาน "ทำได้ดีและสมบูรณ์" ให้ 5 คะแนน
 
         หัวข้อทั้ง 17 ข้อ:
         1. แนะนำตัว/บริษัท 2. แจ้งวัตถุประสงค์ 3. สร้าง Hook 4. Fact Finding 5. นำเสนอตรงความต้องการ
@@ -449,9 +491,9 @@ def evaluate():
         ตัวอย่างโครงสร้างที่ถูกต้อง:
         {{
             "scores": [5, 4, 0, 3, 5, 2, 0, 0, 4, 5, 0, 0, 0, 0, 0, 5, 5],
-            "strengths": "อธิบายจุดแข็งที่พนักงานทำได้ดีในบทสนทนานี้ พร้อมเหตุผลประกอบอย่างละเอียด (3-4 ประโยค)",
-            "weaknesses": "อธิบายจุดอ่อนหรือสิ่งที่พนักงานพลาดไป พร้อมเหตุผลประกอบอย่างละเอียดว่าควรแก้ไขอย่างไร (3-4 ประโยค)",
-            "improvements": "ข้อเสนอแนะเพิ่มเติมเพื่อการพัฒนาและปิดการขาย..."
+            "strengths": "วิจารณ์ตามจริง: ระบุจุดแข็งที่พนักงานทำได้ดีในบทสนทนานี้ เช่น การหานีดเจอ หรือความสุภาพ (3-4 ประโยค)",
+            "weaknesses": "วิจารณ์ตามจริง: ระบุจุดอ่อนหรือสิ่งที่พนักงานพลาดไปอย่างตรงไปตรงมา เช่น ลืมแจ้งสิทธิ์ ข้ามขั้นตอน (3-4 ประโยค)",
+            "improvements": "ข้อเสนอแนะแบบมืออาชีพ: สิ่งที่ควรปรับปรุงในสายถัดไปเพื่อให้เป็นนักขายที่เก่งขึ้น"
         }}"""
         
         response = model.generate_content(eval_prompt)
