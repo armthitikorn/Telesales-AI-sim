@@ -162,7 +162,6 @@ HTML_TEMPLATE = """
             document.getElementById('lobby').style.display = 'block';
         }
 
-        // --- นี่คือฟังก์ชันที่หายไป ทำให้คลิกเลือกลูกค้าไม่ได้ครับ นำกลับมาใส่ให้แล้วครับ! ---
         function startApp(lvl) {
             if(!document.getElementById('staff-name').value) { alert("ระบุชื่อก่อนครับ"); return; }
             activeLvl = lvl;
@@ -175,11 +174,10 @@ HTML_TEMPLATE = """
         var recognition = SpeechRecognition ? new SpeechRecognition() : null;
         
         var speechTimeout; 
-        // ลบ var currentSpeech = ""; ออกไปได้เลย ไม่จำเป็นต้องใช้แล้ว
 
         if(recognition) {
             recognition.lang = 'th-TH';
-            recognition.continuous = true; 
+            recognition.continuous = false; // ปรับเป็น false เพื่อให้ระบบตัดประโยคเคลียร์บัฟเฟอร์ทุกครั้งเมื่อหยุดพูด
             recognition.interimResults = true; 
 
             recognition.onresult = (e) => {
@@ -188,9 +186,7 @@ HTML_TEMPLATE = """
                 let interimTranscript = '';
                 let finalTranscript = '';
 
-                // แก้ไข: เปลี่ยนการวนลูปจาก e.resultIndex เป็น 0 เสมอ
-                // เพื่อประกอบประโยคใหม่ทั้งหมดจากสิ่งที่เบราว์เซอร์จำได้ จะได้ไม่เกิดการเบิ้ลคำ
-                for (let i = 0; i < e.results.length; ++i) {
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
                     if (e.results[i].isFinal) {
                         finalTranscript += e.results[i][0].transcript;
                     } else {
@@ -199,23 +195,34 @@ HTML_TEMPLATE = """
                 }
 
                 let inputField = document.getElementById('text-input');
-                // อัปเดตช่องข้อความโดยใช้ค่าที่อ่านได้โดยตรง
-                inputField.value = finalTranscript + interimTranscript;
+                if(finalTranscript !== "") {
+                    inputField.value = finalTranscript;
+                } else if(interimTranscript !== "") {
+                    inputField.value = interimTranscript;
+                }
 
                 clearTimeout(speechTimeout);
 
                 speechTimeout = setTimeout(() => {
                     let finalMsg = inputField.value.trim();
                     if(finalMsg !== "") {
+                        recognition.stop(); // สั่งหยุดก่อนเพื่อทำการตัดประโยคและส่งข้อมูล
                         sendToAI(finalMsg);
                         inputField.value = "";
-                        recognition.stop(); 
                     }
                 }, 2500); 
             };
 
             recognition.onend = () => {
-                if(!isThinking) document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (แตะไมค์อีกครั้งเพื่อพูด)";
+                // หากไม่ได้อยู่ในระหว่าง AI ประมวลผล และยังเปิดหน้าจอทดสอบอยู่ ให้สั่งรันการฟังต่ออัตโนมัติแบบไร้รอยต่อ
+                if(!isThinking && document.getElementById('main-app').style.display === 'flex') {
+                    try {
+                        recognition.start();
+                        document.getElementById('status').innerText = "🔊 กำลังฟัง... (หยุดพูด 2.5 วิ ระบบจะส่งข้อความอัตโนมัติ)";
+                    } catch(e) {}
+                } else if (!isThinking) {
+                    document.getElementById('status').innerText = "✅ พร้อมคุยต่อ (แตะไมค์อีกครั้งเพื่อพูด)";
+                }
             };
         }
 
@@ -235,31 +242,9 @@ HTML_TEMPLATE = """
             if(recognition) recognition.stop(); 
             
             let input = document.getElementById('text-input');
-            if(input.value && !isThinking) sendToAI(input.value);
+            let finalMsg = input.value.trim();
             input.value = "";
-        }
-
-
-        function toggleListen() {
-            unlockAudio();
-            currentSpeech = ""; 
-            document.getElementById('text-input').value = "";
-            clearTimeout(speechTimeout);
-            try { 
-                recognition.start(); 
-                document.getElementById('status').innerText = "🔊 กำลังฟัง... (หยุดพูด 2.5 วิ ระบบจะส่งข้อความอัตโนมัติ)"; 
-            } catch(e){}
-        }
-
-        function sendMsg() {
-            unlockAudio(); 
-            clearTimeout(speechTimeout); 
-            if(recognition) recognition.stop(); 
-            
-            let input = document.getElementById('text-input');
-            if(input.value && !isThinking) sendToAI(input.value);
-            input.value = "";
-            currentSpeech = ""; 
+            if(finalMsg && !isThinking) sendToAI(finalMsg);
         }
 
         function base64ToBlobUrl(base64) {
@@ -328,6 +313,8 @@ HTML_TEMPLATE = """
             btn.disabled = true;
             btn.innerText = "⏳ กำลังประมวลผล... (อาจใช้เวลาสักครู่)";
             status.innerText = "ระบบกำลังให้ AI วิเคราะห์บทสนทนา...";
+            
+            if(recognition) recognition.stop();
             
             try {
                 const res = await fetch('/api/evaluate', {
