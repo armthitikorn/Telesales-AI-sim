@@ -7,16 +7,38 @@ import traceback
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, NotFound
 
 app = Flask(__name__)
 
 # --- [ส่วนที่ 1: ตั้งค่า API & Logging] ---
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 TTS_API_KEY = os.environ.get("TTS_API_KEY")
-LOG_FILE = "/tmp/sales_performance.csv" 
+LOG_FILE = "/tmp/sales_performance.csv"
 
 genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-3.6-flash")
+
+# โควต้าฟรีนับแยกตามโมเดล -> ไล่ใช้ตามลำดับ ถ้าตัวแรกเต็มจะสลับตัวถัดไปอัตโนมัติ
+# แชท: ใช้ Flash-Lite ก่อน (โควต้าฟรีเยอะ) แล้วค่อยสำรองด้วย 3.6 Flash
+CHAT_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.6-flash"]
+# ประเมิน QC: ใช้ 3.6 Flash ก่อน (แม่นกว่า ใช้แค่ครั้งเดียวต่อรอบ) แล้วสำรองด้วย Lite
+EVAL_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+
+_model_cache = {}
+
+
+def generate_with_fallback(prompt, model_names):
+    last_err = None
+    for name in model_names:
+        try:
+            if name not in _model_cache:
+                _model_cache[name] = genai.GenerativeModel(model_name=name)
+            return _model_cache[name].generate_content(prompt)
+        except (ResourceExhausted, ServiceUnavailable, NotFound) as e:
+            print(f"[fallback] {name} ใช้ไม่ได้: {type(e).__name__}")
+            last_err = e
+    raise last_err
+
 
 def save_to_csv(staff_name, customer_name, scores, total, passed):
     try:
@@ -432,10 +454,12 @@ def chat():
         cust = CUSTOMERS[lvl]
         context = "\n".join(history)
         full_prompt = f"{cust['prompt']}\nประวัติคุย: {context}\nพนักงาน: {user_msg}\nลูกค้าตอบกลับสั้นๆ:"
-        response = model.generate_content(full_prompt)
+        response = generate_with_fallback(full_prompt, CHAT_MODELS)
         reply_text = response.text.strip()
         audio_data = get_audio_base64(reply_text, cust['voice'])
         return jsonify({"reply": reply_text, "audio": audio_data})
+    except ResourceExhausted:
+        return jsonify({"reply": "ขณะนี้โควต้า AI ประจำวันเต็มทุกโมเดล กรุณาลองใหม่อีกครั้งหลังบ่ายสองโมงครับ", "error": True, "audio": None})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"reply": f"ระบบ AI ขัดข้อง: {str(e)}", "error": True, "audio": None})
@@ -469,7 +493,7 @@ def evaluate():
             "improvements": "ข้อเสนอแนะเพิ่มเติมเพื่อการพัฒนาและปิดการขาย..."
         }}"""
         
-        response = model.generate_content(eval_prompt)
+        response = generate_with_fallback(eval_prompt, EVAL_MODELS)
         res_text = response.text.strip()
         
         if "```json" in res_text:
@@ -505,6 +529,15 @@ def evaluate():
         eval_data["passed"] = passed
         return jsonify(eval_data)
         
+    except ResourceExhausted:
+        return jsonify({
+            "scores": [0]*17,
+            "total": 0,
+            "passed": False,
+            "strengths": "-",
+            "weaknesses": "โควต้า AI ประจำวันเต็มทุกโมเดล จึงประเมินผลไม่ได้ในขณะนี้",
+            "improvements": "กรุณากดประเมินผลใหม่อีกครั้งหลังบ่ายสองโมง (เวลาไทย)"
+        })
     except Exception as e:
         traceback.print_exc()
         raw_ai_text = response.text if 'response' in locals() else 'ไม่มีข้อมูล'
